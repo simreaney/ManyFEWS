@@ -50,7 +50,6 @@ jobs:
       -
         uses: conda-incubator/setup-miniconda@v4
         with:
-          miniforge-variant: Mambaforge
           miniforge-version: latest
           activate-environment: anaconda-client-env
           environment-file: config/manyFEWS.base.yml
