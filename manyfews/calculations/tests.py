@@ -59,7 +59,9 @@ def _synthetic_hourly(start_date_str, end_date_str, member_suffixes=("",)):
     hourly = {"time": times}
     for suffix in member_suffixes:
         hourly[f"precipitation{suffix}"] = [0.1] * num_hours
-        hourly[f"temperature_2m{suffix}"] = [20.0 + (h % 24) * 0.1 for h in range(num_hours)]
+        hourly[f"temperature_2m{suffix}"] = [
+            20.0 + (h % 24) * 0.1 for h in range(num_hours)
+        ]
         hourly[f"windspeed_10m{suffix}"] = [5.0] * num_hours
         hourly[f"winddirection_10m{suffix}"] = [180.0] * num_hours
         hourly[f"relativehumidity_2m{suffix}"] = [70.0] * num_hours
@@ -90,7 +92,9 @@ def _mock_open_meteo_get(url, params=None, timeout=None):
 
 
 class TaskTest(TestCase):
-    @mock.patch("calculations.open_meteo.requests.get", side_effect=_mock_open_meteo_get)
+    @mock.patch(
+        "calculations.open_meteo.requests.get", side_effect=_mock_open_meteo_get
+    )
     def test_initial_model_setup(self, mock_get):
         """
         Test the initial Model SetUp and daily update tasks.

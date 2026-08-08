@@ -140,7 +140,9 @@ def _fetch_json(url: str, params: dict) -> dict:
     return response.json()
 
 
-def _fetch_ensemble_data(lat: float, lon: float, model: str, start_date: str, end_date: str) -> dict:
+def _fetch_ensemble_data(
+    lat: float, lon: float, model: str, start_date: str, end_date: str
+) -> dict:
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -154,7 +156,9 @@ def _fetch_ensemble_data(lat: float, lon: float, model: str, start_date: str, en
     return _fetch_json(_ENSEMBLE_URL, params)
 
 
-def _fetch_historical_data(lat: float, lon: float, start_date: str, end_date: str) -> dict:
+def _fetch_historical_data(
+    lat: float, lon: float, start_date: str, end_date: str
+) -> dict:
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -178,7 +182,7 @@ def _member_suffixes(hourly: dict) -> list[str]:
         if key == "precipitation":
             suffixes.append("")
         elif key.startswith("precipitation_member"):
-            suffixes.append(key[len("precipitation"):])
+            suffixes.append(key[len("precipitation") :])
     return suffixes
 
 
@@ -208,7 +212,9 @@ def _bucket_to_6h(hourly: dict, suffix: str = "") -> list[dict]:
     for start in range(0, full_buckets_end, _BUCKET_HOURS):
         idxs = range(start, start + _BUCKET_HOURS)
 
-        bucket_precip = [precip[i] for i in idxs if i < len(precip) and precip[i] is not None]
+        bucket_precip = [
+            precip[i] for i in idxs if i < len(precip) and precip[i] is not None
+        ]
         bucket_temp = [temp[i] for i in idxs if i < len(temp) and temp[i] is not None]
         bucket_rh = [rh[i] for i in idxs if i < len(rh) and rh[i] is not None]
         bucket_uv = [
@@ -385,4 +391,7 @@ def prepareOpenMeteoHistorical(start_date: datetime, end_date: datetime) -> None
     ]
 
     AggregatedWeatherReading.objects.bulk_create(readings, batch_size=500)
-    logger.info("Saved %d AggregatedWeatherReading rows from Open-Meteo historical data", len(readings))
+    logger.info(
+        "Saved %d AggregatedWeatherReading rows from Open-Meteo historical data",
+        len(readings),
+    )

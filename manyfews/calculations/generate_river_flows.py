@@ -520,9 +520,11 @@ def prepareWeatherForecastData(
 
     elif dataSource == "historical":
         endTime = startTime + timedelta(days=backDays)
-        weatherData = AggregatedWeatherReading.objects.filter(
-            date__range=(startTime, endTime)
-        ).filter(location=location).order_by("date")
+        weatherData = (
+            AggregatedWeatherReading.objects.filter(date__range=(startTime, endTime))
+            .filter(location=location)
+            .order_by("date")
+        )
 
     RHList = []
     minTemperatureList = []
