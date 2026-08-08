@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ("calculations", "0017_remove_aggregateddepthprediction_tile_size_and_more"),
+        ("calculations", "0003_riverchannel"),
     ]
 
     operations = [
