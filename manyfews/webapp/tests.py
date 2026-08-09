@@ -260,6 +260,11 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "id_new_password2").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "confirm-reset-password-submit").click()
 
+        # Wait for the reset to land on its 'complete' page before navigating
+        # away. Without this the pending redirect overtakes the get() below and
+        # puts the browser back on /accounts/reset/done/.
+        self.assertOnPage("/accounts/reset/done/")
+
         # Go back to login page and log in with new password
         self.selenium.get("%s%s" % (self.live_server_url, "/accounts/login/"))
         self.wait_for_element(By.ID, "id_username").send_keys("manyfews@mailinator.com")
