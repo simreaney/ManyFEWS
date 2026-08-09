@@ -14,6 +14,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.common.exceptions import (
     StaleElementReferenceException,
+    TimeoutException,
     WebDriverException,
 )
 
@@ -112,6 +113,27 @@ class WebAppTestCase(StaticLiveServerTestCase):
         expected = "%s%s" % (self.live_server_url, path)
         WebDriverWait(self.selenium, 10).until(EC.url_to_be(expected))
         assert self.selenium.current_url == expected
+
+    def wait_for_element(self, by, value):
+        """
+        Wait for an element to appear and return it.
+
+        On timeout, report the URL the browser actually ended up on and the
+        start of the page source. A bare NoSuchElementException says only that
+        the element is missing, not which page was being looked at - which is
+        useless when the browser has landed somewhere unexpected.
+        """
+        try:
+            return WebDriverWait(self.selenium, 10).until(
+                EC.presence_of_element_located((by, value))
+            )
+        except TimeoutException:
+            raise AssertionError(
+                f"{value!r} never appeared.\n"
+                f"  current_url: {self.selenium.current_url}\n"
+                f"  title: {self.selenium.title}\n"
+                f"  page source (first 3000 chars):\n{self.selenium.page_source[:3000]}"
+            )
 
     def header_buttons(self):
         """Re-read the top-right header buttons, which change on login/logout."""
@@ -234,17 +256,16 @@ class WebAppTestCase(StaticLiveServerTestCase):
 
         # Go to reset link and change password
         self.selenium.get(reset_link)
-        self.selenium.find_element(By.ID, "id_new_password1").send_keys("23sj4bds32")
+        self.wait_for_element(By.ID, "id_new_password1").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "id_new_password2").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "confirm-reset-password-submit").click()
 
         # Go back to login page and log in with new password
         self.selenium.get("%s%s" % (self.live_server_url, "/accounts/login/"))
-        self.selenium.find_element(By.ID, "id_username").send_keys(
-            "manyfews@mailinator.com"
-        )
+        self.wait_for_element(By.ID, "id_username").send_keys("manyfews@mailinator.com")
         self.selenium.find_element(By.ID, "id_password").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "login-submit").click()
+        self.assertOnPage("/")
 
     @mock.patch("webapp.forms.TwilioAlerts")
     @mock.patch("webapp.views.TwilioAlerts")
