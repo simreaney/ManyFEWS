@@ -1,7 +1,9 @@
 name: ManyFEWS
 channels:
+  # Only conda-forge. Do not add 'defaults': conda 25.3+ refuses to use
+  # repo.anaconda.com channels without an accepted Terms of Service, which
+  # fails non-interactively on CI runners and in Docker builds.
   - conda-forge
-  - defaults
 dependencies:
   - numpy>=1.24,<2
   - numba>=0.57.1

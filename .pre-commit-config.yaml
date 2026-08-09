@@ -1,6 +1,8 @@
+# Keep the black version in sync with .github/workflows/black.yml and
+# config/manyFEWS.devel.yml, or local pre-commit runs will reformat code that
+# CI then rejects (and vice versa).
 repos:
 - repo: https://github.com/psf/black
   rev: 24.10.0
   hooks:
   - id: black
-    language_version: python3.9

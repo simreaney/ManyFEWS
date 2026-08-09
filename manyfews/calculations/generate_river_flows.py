@@ -483,7 +483,6 @@ def prepareInitialCondition(predictionDate, location):
 def prepareWeatherForecastData(
     predictionDate, location, dataSource="forecast", backDays=0, ensemble_member=None
 ):
-
     """
 
     This function is for extracting weather data with specific dates and locations from DB,

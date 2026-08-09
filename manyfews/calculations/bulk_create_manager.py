@@ -2,6 +2,7 @@
 Django Bulk Inserts class originally from:
 https://www.caktusgroup.com/blog/2019/01/09/django-bulk-inserts/
 """
+
 from collections import defaultdict
 from typing import Union
 

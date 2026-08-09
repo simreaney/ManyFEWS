@@ -1,10 +1,12 @@
 name: ManyFEWS
 channels:
+  # See the note in manyFEWS.base.yml: 'defaults' must not be added here.
   - conda-forge
-  - defaults
 dependencies:
   # dev dependencies
-  - black=22.3.0
+  # Keep this version in sync with .pre-commit-config.yaml and
+  # .github/workflows/black.yml, or CI lint and local pre-commit will disagree.
+  - black=24.10.0
   - pre-commit
   - pytest
   - selenium==4.4.0

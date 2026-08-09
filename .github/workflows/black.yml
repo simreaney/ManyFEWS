@@ -11,4 +11,5 @@ jobs:
         with:
           options: "--check"
           src: "./manyfews"
-          version: "~= 22.3"
+          # Keep in sync with .pre-commit-config.yaml and config/manyFEWS.devel.yml
+          version: "~= 24.10.0"

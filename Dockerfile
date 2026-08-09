@@ -31,16 +31,17 @@
 FROM node:lts-alpine as build_node
 MAINTAINER Samantha Finnigan <samantha.finnigan@durham.ac.uk>, ARC Durham University
 
-# Install Python (required for node-gyp)
+# Toolchain for any dependency without a prebuilt musl binary (node-gyp)
 RUN apk add --update python3 make g++ && \
     rm -rf /var/cache/apk/*
 
 # Based on https://cli.vuejs.org/guide/deployment.html#docker-nginx
 WORKDIR /app
 
-# Install app dependencies
-COPY manyfews/package.json .
-RUN npm install
+# Install app dependencies. 'npm ci' builds strictly from the lockfile so the
+# bundle produced here matches the one committed to webapp/static.
+COPY manyfews/package.json manyfews/package-lock.json ./
+RUN npm ci
 
 # Copy files and build app
 COPY manyfews/webpack.config.js .
@@ -50,7 +51,11 @@ RUN npm run build
 
 # ----------------------------------------------------------------------------
 # Create conda environment
-FROM continuumio/miniconda3 as build_python
+#
+# Miniforge (conda-forge only) rather than continuumio/miniconda3: the latter
+# configures the Anaconda 'defaults' channel, which conda 25.3+ refuses to use
+# without an interactively accepted Terms of Service, breaking the build.
+FROM condaforge/miniforge3 as build_python
 
 # https://pythonspeed.com/articles/conda-docker-image-size/
 # Create the environment:

@@ -36,16 +36,21 @@ jobs:
         name: Cache Miniconda environment
         uses: actions/cache@v6
         with:
-          path: /usr/share/miniconda3/envs/anaconda-client-env
-          key: conda-${{ runner.os }}--${{ runner.arch }}--${{ steps.get-date.outputs.today }}-${{ hashFiles('config/manyFEWS.base.yml') }}-${{ env.CACHE_NUMBER }}
+          # Cache the downloaded conda packages rather than the environment
+          # directory itself: setup-miniconda installs Miniforge into
+          # ~/miniconda3 and builds the env there, so pre-seeding the env dir
+          # fights with the installer. ~/conda_pkgs_dir is setup-miniconda's
+          # default package directory.
+          path: ~/conda_pkgs_dir
+          key: conda-${{ runner.os }}--${{ runner.arch }}--${{ hashFiles('config/manyFEWS.base.yml', 'config/manyFEWS.devel.yml') }}-${{ env.CACHE_NUMBER }}
         env:
           # Increase this to manually invalidate the cache
-          CACHE_NUMBER: 0 +
+          CACHE_NUMBER: 0
         id: cache
 
       -
         name: Install chromedriver
-        uses: nanasess/setup-chromedriver@v2
+        uses: nanasess/setup-chromedriver@v3
 
       -
         uses: conda-incubator/setup-miniconda@v4
@@ -55,8 +60,6 @@ jobs:
           environment-file: config/manyFEWS.base.yml
           python-version: 3.9
           auto-activate-base: false
-          use-mamba: true
-          use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
 
       # https://github.com/conda-incubator/setup-miniconda/issues/105#issuecomment-730243912
       -
@@ -71,7 +74,9 @@ jobs:
         name: Install npm
         uses: actions/setup-node@v7
         with:
-          node-version: '16'
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: manyfews/package-lock.json
 
       -
         name: Run Django migrations
@@ -97,18 +102,25 @@ jobs:
 
       -
         name: Check npm and webpack
+        # 'npm ci' (not 'npm install') so the build is reproducible from the
+        # lockfile - otherwise the bundle can differ from the committed one and
+        # the 'built assets are up-to-date' check below fails spuriously.
         run: |
-          npm install
+          npm ci
           npm run build
         working-directory: manyfews
 
       -
         name: Check built assets are up-to-date
+        # Pathspecs are relative to the working directory, so this must be
+        # 'webapp/static', not 'manyfews/webapp/static' - the latter resolved to
+        # manyfews/manyfews/webapp/static, matched nothing, and made this check
+        # silently pass no matter what the build produced.
         run: |
-          if [[ `git status --porcelain manyfews/webapp/static` ]]; then
+          if [[ `git status --porcelain webapp/static` ]]; then
             echo "Static files are not up to date:"
-            git status --porcelain manyfews/webapp/static
-            echo "Run 'npm run build' from the 'manyfews' directory and commit the changes."
+            git status --porcelain webapp/static
+            echo "Run 'npm ci && npm run build' from the 'manyfews' directory and commit the changes."
             exit 1
           fi
         working-directory: manyfews
