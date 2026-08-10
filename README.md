@@ -9,8 +9,6 @@ ManyFEWS (the Many Flood Early Warning System) can be deployed by a community wh
 
 | Project Member                                   | Contact address                                                      | Role                             | Unit                                                                                |
 |--------------------------------------------------|----------------------------------------------------------------------|----------------------------------|-------------------------------------------------------------------------------------|
-
-
 | Prof. Simon Mathias                              | [simon.mathias@durham.ac.uk](mailto:simon.mathias@durham.ac.uk)      | Project Lead (PI)                | [Department of Engineering](https://www.durham.ac.uk/departments/academic/engineering/) |
 | Prof. [Sim Reaney](https://github.com/simreaney)   | [sim.reaney@durham.ac.uk](mailto:sim.reaney@durham.ac.uk)               | Java Flood One Co-Investigator   | [Department of Geography](https://www.durham.ac.uk/departments/academic/geography/) |
 | Dr. [Samantha Finnigan](https://github.com/sjmf) | [samantha.finnigan@dur.ac.uk](mailto:samantha.finnigan@durham.ac.uk) | Research Software Engineer (RSE) | [Advanced Research Computing](https://www.dur.ac.uk/arc/rse/)                       |
