@@ -12,7 +12,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import (
+    StaleElementReferenceException,
+    TimeoutException,
+    WebDriverException,
+)
 
 from .alerts import TwilioAlerts
 from .converters import BoundingBoxUrlParameterConverter
@@ -97,6 +101,63 @@ class WebAppTestCase(StaticLiveServerTestCase):
         cls.selenium.quit()
         super().tearDownClass()
 
+    def assertOnPage(self, path):
+        """
+        Wait for the browser to land on `path`, then assert that it did.
+
+        WebElement.click() does not reliably block until the next page has
+        loaded, so reading current_url straight after a click is a race. That
+        race is what made these tests fail intermittently, and at a different
+        assertion each run.
+        """
+        expected = "%s%s" % (self.live_server_url, path)
+        WebDriverWait(self.selenium, 10).until(EC.url_to_be(expected))
+        assert self.selenium.current_url == expected
+
+    def wait_for_element(self, by, value):
+        """
+        Wait for an element to appear and return it.
+
+        On timeout, report the URL the browser actually ended up on and the
+        start of the page source. A bare NoSuchElementException says only that
+        the element is missing, not which page was being looked at - which is
+        useless when the browser has landed somewhere unexpected.
+        """
+        try:
+            return WebDriverWait(self.selenium, 10).until(
+                EC.presence_of_element_located((by, value))
+            )
+        except TimeoutException:
+            raise AssertionError(
+                f"{value!r} never appeared.\n"
+                f"  current_url: {self.selenium.current_url}\n"
+                f"  title: {self.selenium.title}\n"
+                f"  page source (first 3000 chars):\n{self.selenium.page_source[:3000]}"
+            )
+
+    def header_buttons(self):
+        """Re-read the top-right header buttons, which change on login/logout."""
+        return self.selenium.find_elements(By.CSS_SELECTOR, ".header .col-4 .btn")
+
+    def alert_table_rows(self, expected_count):
+        """
+        Return the rows of the alerts table once there are `expected_count` of
+        them, retrying while the table is being re-rendered.
+
+        Looking up the table and then its rows is two round trips, and the page
+        can reload in between - which raised StaleElementReferenceException.
+        """
+
+        def _rows(driver):
+            try:
+                table = driver.find_element(By.TAG_NAME, "table")
+                rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
+            except StaleElementReferenceException:
+                return False
+            return rows if len(rows) == expected_count else False
+
+        return WebDriverWait(self.selenium, 10).until(_rows)
+
     def test_home(self):
         # Simple test that the home page loads without errors
         self.selenium.get("%s%s" % (self.live_server_url, "/"))
@@ -126,7 +187,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.get("%s%s" % (self.live_server_url, "/accounts/signup/"))
 
         # Check top-right buttons are "Login" and "Sign up"
-        buttons = self.selenium.find_elements(By.CSS_SELECTOR, ".header .col-4 .btn")
+        buttons = self.header_buttons()
         assert len(buttons) == 2
         assert buttons[0].text == "Login"
         assert buttons[1].text == "Sign Up"
@@ -141,10 +202,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "signup-submit").click()
 
         # Should be redirected to login page
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/accounts/login/",
-        )
+        self.assertOnPage("/accounts/login/")
 
         # Log in
         self.selenium.find_element(By.ID, "id_username").send_keys(
@@ -154,8 +212,8 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "login-submit").click()
 
         # Should be redirected to homepage; top-right links should have changed
-        assert self.selenium.current_url == "%s%s" % (self.live_server_url, "/")
-        buttons = self.selenium.find_elements(By.CSS_SELECTOR, ".header .col-4 .btn")
+        self.assertOnPage("/")
+        buttons = self.header_buttons()
         assert len(buttons) == 2
         assert buttons[0].text == "Alerts"
         assert buttons[1].text == "Log Out"
@@ -163,29 +221,27 @@ class WebAppTestCase(StaticLiveServerTestCase):
         # Log out
         buttons[1].click()
         # Should be redirected to homepage; top-right links should be "Login"/"Sign Up" again
-        assert self.selenium.current_url == "%s%s" % (self.live_server_url, "/")
-        buttons = self.selenium.find_elements(By.CSS_SELECTOR, ".header .col-4 .btn")
+        self.assertOnPage("/")
+        buttons = self.header_buttons()
         assert len(buttons) == 2
         assert buttons[0].text == "Login"
         assert buttons[1].text == "Sign Up"
 
         # Navigate to login page and find 'reset password' button
         buttons[0].click()
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/accounts/login/",
-        )
+        self.assertOnPage("/accounts/login/")
         reset_button = self.selenium.find_element(By.CLASS_NAME, "btn-secondary")
         reset_button.click()
 
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/accounts/password_reset/",
-        )
+        self.assertOnPage("/accounts/password_reset/")
         self.selenium.find_element(By.ID, "id_email").send_keys(
             "manyfews@mailinator.com"
         )
         self.selenium.find_element(By.ID, "reset-password-submit").click()
+
+        # Landing on the 'done' page means the request completed, so the reset
+        # email has been sent by the time we read the outbox.
+        self.assertOnPage("/accounts/password_reset/done/")
 
         # Check email outbox - should be a password reset email
         assert len(mail.outbox) == 1
@@ -200,17 +256,21 @@ class WebAppTestCase(StaticLiveServerTestCase):
 
         # Go to reset link and change password
         self.selenium.get(reset_link)
-        self.selenium.find_element(By.ID, "id_new_password1").send_keys("23sj4bds32")
+        self.wait_for_element(By.ID, "id_new_password1").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "id_new_password2").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "confirm-reset-password-submit").click()
 
+        # Wait for the reset to land on its 'complete' page before navigating
+        # away. Without this the pending redirect overtakes the get() below and
+        # puts the browser back on /accounts/reset/done/.
+        self.assertOnPage("/accounts/reset/done/")
+
         # Go back to login page and log in with new password
         self.selenium.get("%s%s" % (self.live_server_url, "/accounts/login/"))
-        self.selenium.find_element(By.ID, "id_username").send_keys(
-            "manyfews@mailinator.com"
-        )
+        self.wait_for_element(By.ID, "id_username").send_keys("manyfews@mailinator.com")
         self.selenium.find_element(By.ID, "id_password").send_keys("23sj4bds32")
         self.selenium.find_element(By.ID, "login-submit").click()
+        self.assertOnPage("/")
 
     @mock.patch("webapp.forms.TwilioAlerts")
     @mock.patch("webapp.views.TwilioAlerts")
@@ -237,15 +297,13 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "login-submit").click()
 
         # Find Alerts button and click
-        buttons = self.selenium.find_elements(By.CSS_SELECTOR, ".header .col-4 .btn")
+        self.assertOnPage("/")
+        buttons = self.header_buttons()
         assert buttons[0].text == "Alerts"
         buttons[0].click()
 
         # Check we're on alerts page
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/alerts",
-        )
+        self.assertOnPage("/alerts")
 
         # Look for text
         assert (
@@ -319,9 +377,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
         save_alert.click()
 
         # Should now have a table under "Your Alerts"
-        table = self.selenium.find_element(By.TAG_NAME, "table")
-        rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
-        assert len(rows) == 1
+        rows = self.alert_table_rows(1)
         assert rows[0].text == "SMS +441234567890 Verify View/Edit Delete"
 
         # Click Verify button - should load modal
@@ -335,13 +391,8 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "verify-submit").click()
 
         # Should be back on alerts page with alert now verified
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/alerts",
-        )
-        table = self.selenium.find_element(By.TAG_NAME, "table")
-        rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
-        assert len(rows) == 1
+        self.assertOnPage("/alerts")
+        rows = self.alert_table_rows(1)
         assert rows[0].text == "SMS +441234567890 Yes View/Edit Delete"
 
         # Click edit - should reload page with form pre-populated
@@ -365,10 +416,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "delete-link").click()
 
         # Should be back on main alerts page
-        assert self.selenium.current_url == "%s%s" % (
-            self.live_server_url,
-            "/alerts",
-        )
+        self.assertOnPage("/alerts")
         # Should be no alerts set up again
         assert (
             'You have no alerts set up. Click "Add New" to create one.'

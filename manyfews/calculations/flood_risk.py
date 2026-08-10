@@ -261,7 +261,49 @@ def process_pixel(
             bulk_mgr.add(new_prediction)
 
 
-@jit(nopython=False)
+@jit(nopython=True)
+def _depth_centiles(flow_values, beta0, beta1, beta2, beta3, minQ):
+    """
+    Numeric core of predict_depth: evaluate the depth polynomial over every
+    flow value and reduce to centiles.
+
+    Split out from predict_depth so that it can compile in nopython mode.
+    predict_depth reads its coefficients straight off a Django model, which
+    Numba cannot type, and Numba 0.59 removed @jit's object-mode fallback -
+    so the function no longer compiles as a single unit.
+
+    @param flow_values: contiguous float64 array of flow rates
+    @param beta0..beta3: polynomial coefficients
+    @param minQ: minimum flow rate to evaluate the polynomial at
+    @return: (lower_centile, mid_lower_centile, median, upper_centile)
+    """
+    flat = flow_values.ravel()
+    depths = np.zeros(flat.size, dtype=np.float64)
+
+    for i in range(flat.size):
+        element = flat[i]
+        # minQ is the minimum flow rate to calculate polynomial on
+        # If we're less than the minimum flow rate, then depth = 0
+        if element < minQ:
+            depth = 0.0
+        else:
+            # Horner form of beta0 + beta1*x + beta2*x**2 + beta3*x**3
+            depth = beta0 + element * (beta1 + element * (beta2 + element * beta3))
+
+        if depth < 0.0:
+            depth = 0.0
+
+        depths[i] = depth
+
+    # Get median and centiles
+    return (
+        np.percentile(depths, 10),
+        np.percentile(depths, 30),
+        np.median(depths),
+        np.percentile(depths, 90),
+    )
+
+
 def predict_depth(flow_values, param):
     """
     Predict the depth of a cell using numpy polynomial
@@ -272,40 +314,16 @@ def predict_depth(flow_values, param):
 
     # FIXME: getattr is slow
     beta_values = [getattr(param, i, 0) for i in BETA_ARGS]
-    beta_values = [0 if b is None else b for b in beta_values]
+    beta_values = [0.0 if b is None else float(b) for b in beta_values]
 
-    minQ = beta_values[4]
-    beta_values = beta_values[:4]
-
-    depths = np.zeros_like(flow_values)
-    for index, element in np.ndenumerate(flow_values):
-        # minQ is the minimum flow rate to calculate polynomial on
-        # If we're less than the minimum flow rate, then depth = 0
-        if element < minQ:
-            depth = 0
-        else:
-            polynomial = np.polynomial.Polynomial(beta_values)
-            depth = polynomial(element)
-
-        depths[index] = depth
-
-    # TODO: Does this have any effect?
-    depths[depths < 0] = 0
-
-    # Get median and centiles
-    median = np.median(depths)
-    lower_centile = np.percentile(depths, 10)
-    mid_lower_centile = np.percentile(depths, 30)
-    upper_centile = np.percentile(depths, 90)
-
-    # logger.debug(
-    #    f"depths type {type(depths)}, shape: {np.shape(depths)}"
-    # )
-    # logger.debug(
-    #    f"get median and centiles: {median} & {mid_lower_centile} & {upper_centile}"
-    # )
-
-    return lower_centile, mid_lower_centile, median, upper_centile
+    return _depth_centiles(
+        np.ascontiguousarray(flow_values, dtype=np.float64),
+        beta_values[0],
+        beta_values[1],
+        beta_values[2],
+        beta_values[3],
+        beta_values[4],
+    )
 
 
 @shared_task(name="aggregate_flood_models")
