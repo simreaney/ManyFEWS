@@ -141,20 +141,25 @@ class WebAppTestCase(StaticLiveServerTestCase):
 
     def alert_table_rows(self, expected_count):
         """
-        Return the rows of the alerts table once there are `expected_count` of
-        them, retrying while the table is being re-rendered.
+        Return (row, text) pairs for the alerts table once there are
+        `expected_count` rows, retrying while the table is being re-rendered.
 
-        Looking up the table and then its rows is two round trips, and the page
-        can reload in between - which raised StaleElementReferenceException.
+        Text is read inside this same retry loop rather than left for the
+        caller: a row that reads cleanly here can still go stale by the next
+        statement if the page is still settling after a redirect, and reading
+        .text outside the loop reintroduced that same
+        StaleElementReferenceException race one line later.
         """
 
         def _rows(driver):
             try:
                 table = driver.find_element(By.TAG_NAME, "table")
                 rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
+                if len(rows) != expected_count:
+                    return False
+                return [(row, row.text) for row in rows]
             except StaleElementReferenceException:
                 return False
-            return rows if len(rows) == expected_count else False
 
         return WebDriverWait(self.selenium, 10).until(_rows)
 
@@ -378,7 +383,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
 
         # Should now have a table under "Your Alerts"
         rows = self.alert_table_rows(1)
-        assert rows[0].text == "SMS +441234567890 Verify View/Edit Delete"
+        assert rows[0][1] == "SMS +441234567890 Verify View/Edit Delete"
 
         # Click Verify button - should load modal
         self.selenium.find_element(
@@ -393,10 +398,10 @@ class WebAppTestCase(StaticLiveServerTestCase):
         # Should be back on alerts page with alert now verified
         self.assertOnPage("/alerts")
         rows = self.alert_table_rows(1)
-        assert rows[0].text == "SMS +441234567890 Yes View/Edit Delete"
+        assert rows[0][1] == "SMS +441234567890 Yes View/Edit Delete"
 
         # Click edit - should reload page with form pre-populated
-        rows[0].find_element(By.CLASS_NAME, "btn-secondary").click()
+        rows[0][0].find_element(By.CLASS_NAME, "btn-secondary").click()
         edit_url = "%s%s" % (
             self.live_server_url,
             "/alerts/edit/",
