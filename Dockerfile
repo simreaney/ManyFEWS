@@ -68,8 +68,11 @@ RUN --mount=type=cache,target=/opt/conda/pkgs \
     conda install -c conda-forge conda-pack
 
 # Use conda-pack to create a standalone enviornment
-# in /venv:
-RUN conda-pack -n ManyFEWS -o /tmp/env.tar && \
+# in /venv. --ignore-missing-files: the base env's 'pip:' section
+# (django-geojson etc.) reinstalls Django's dist-info as pip-owned, which
+# conda-pack otherwise flags as clobbered; the files are still packed, just
+# no longer verified against conda's manifest.
+RUN conda-pack -n ManyFEWS -o /tmp/env.tar --ignore-missing-files && \
   mkdir /venv && cd /venv && tar xf /tmp/env.tar && \
   rm /tmp/env.tar
 
