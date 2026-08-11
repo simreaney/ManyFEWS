@@ -51,16 +51,13 @@ NB: You must install a browser driver to run automated UI tests. You can try usi
    Exit the postgresql shell using Ctrl-D or typing `\q`.
 
 
-6. Create a [Stadia Maps](https://stadiamaps.com/) developer account, and an API key. (Weather data comes from
-   [Open-Meteo](https://open-meteo.com/), which is free and needs no account or API key.)
-
-
-7. Set up environment variables in Django.  
+6. Set up environment variables in Django. Map tiles come from
+   [OpenStreetMap](https://www.openstreetmap.org/), and weather data comes from
+   [Open-Meteo](https://open-meteo.com/); neither needs an account or API key.
    ```bash
    $ cd manyfews
    $ cp .env.CI .env
    $ vi .env
-   > Add your Stadia Maps API token to the end of MAP_URL as '?api_key=<...>'.
    > replace the lines starting with 'EMAIL_' with your SMTP settings (either real settings, or using something like [mailcatcher](https://mailcatcher.me))
    > Save and quit.
    $ cd ..

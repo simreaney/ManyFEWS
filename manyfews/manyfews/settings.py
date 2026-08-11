@@ -56,9 +56,13 @@ FLOOD_MODEL_PARAMETERS = env.tuple(
     "FLOOD_MODEL_PARAMETERS", float, (1, 1, 0.12, 0.399, 0.00395, 0.00565)
 )
 
-# Leaflet map tiles URL (including API key if needed)
-MAP_URL = env.str(
-    "MAP_URL", "https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png"
+# Leaflet map tiles URL (including API key if needed) and attribution.
+# Defaults to OpenStreetMap's standard tile server, which is free and needs
+# no account or API key.
+MAP_URL = env.str("MAP_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+MAP_ATTRIBUTION = env.str(
+    "MAP_ATTRIBUTION",
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 )
 MAP_CENTER = env.tuple("MAP_CENTER", float, (-7.050465729629079, 107.75813455787436))
 
@@ -228,6 +232,18 @@ USE_TZ = True
 STATIC_URL = env.str("STATIC_URL", "static/")
 STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/html/static")
 
+# Content-hash static filenames on collectstatic (e.g. index-bundle.a1b2c3d4.js),
+# so the 1-year nginx cache (config/subsite.conf) can't ever serve a stale
+# asset: a changed file gets a new URL instead of overwriting the cached one.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+    },
+}
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
@@ -241,7 +257,7 @@ LEAFLET_CONFIG = {
     "MIN_ZOOM": 10,
     "MAX_ZOOM": 25,
     "DEFAULT_PRECISION": 6,
-    "TILES": MAP_URL,
+    "TILES": [("OpenStreetMap", MAP_URL, {"attribution": MAP_ATTRIBUTION})],
 }
 
 # Celery task configuration

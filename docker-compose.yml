@@ -5,6 +5,7 @@ services:
   # RabbitMQ message queue service for Celery task broker
   rabbitmq:
     image: rabbitmq:3.10
+    platform: linux/amd64
     container_name: ${COMPOSE_PROJECT_NAME}_rabbitmq
     restart: always
     environment:
@@ -18,7 +19,8 @@ services:
 
   # PostGIS server
   postgres:
-    image: postgis/postgis:14-3.2
+    image: postgis/postgis:16-3.4
+    platform: linux/amd64
     container_name: ${COMPOSE_PROJECT_NAME}_postgres
     restart: always
     environment:

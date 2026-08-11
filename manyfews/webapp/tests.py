@@ -76,6 +76,8 @@ class ConverterTestCase(TestCase):
 
 
 class WebAppTestCase(StaticLiveServerTestCase):
+    fixtures = ["RiverFlowCalculationOutput", "RiverFlowPrediction"]
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -187,15 +189,51 @@ class WebAppTestCase(StaticLiveServerTestCase):
                 [f"{line['level']}: {line['message']}" for line in log]
             )
 
+    def test_river_flows(self):
+        # Nav link from the home page should reach the river flows screen
+        self.selenium.get("%s%s" % (self.live_server_url, "/"))
+        buttons = self.header_buttons()
+        assert buttons[0].text == "River Flows"
+        buttons[0].click()
+        self.assertOnPage("/river-flows")
+
+        # Default mode is the 10th-90th percentile ribbon: a single ribbon
+        # area and a single median line, no per-prediction lines.
+        self.wait_for_element(By.CSS_SELECTOR, ".river-flow-ribbon")
+        assert (
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-median"))
+            == 1
+        )
+        assert (
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-line")) == 0
+        )
+
+        # Switching to "every prediction" draws one line per parameter set
+        # (the fixture data has 100 RiverFlowPrediction rows per forecast
+        # time) and removes the ribbon/median.
+        self.selenium.find_element(By.CSS_SELECTOR, "label[for='mode-all']").click()
+        WebDriverWait(self.selenium, 10).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, ".river-flow-line")) > 0
+        )
+        assert (
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-line"))
+            == 100
+        )
+        assert (
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-ribbon"))
+            == 0
+        )
+
     def test_users(self):
         # Add a user, log in, log out
         self.selenium.get("%s%s" % (self.live_server_url, "/accounts/signup/"))
 
-        # Check top-right buttons are "Login" and "Sign up"
+        # Check top-right buttons are "River Flows", "Login" and "Sign up"
         buttons = self.header_buttons()
-        assert len(buttons) == 2
-        assert buttons[0].text == "Login"
-        assert buttons[1].text == "Sign Up"
+        assert len(buttons) == 3
+        assert buttons[0].text == "River Flows"
+        assert buttons[1].text == "Login"
+        assert buttons[2].text == "Sign Up"
 
         # Create a new user
         self.selenium.find_element(By.ID, "id_email").send_keys(
@@ -219,21 +257,23 @@ class WebAppTestCase(StaticLiveServerTestCase):
         # Should be redirected to homepage; top-right links should have changed
         self.assertOnPage("/")
         buttons = self.header_buttons()
-        assert len(buttons) == 2
-        assert buttons[0].text == "Alerts"
-        assert buttons[1].text == "Log Out"
+        assert len(buttons) == 3
+        assert buttons[0].text == "River Flows"
+        assert buttons[1].text == "Alerts"
+        assert buttons[2].text == "Log Out"
 
         # Log out
-        buttons[1].click()
+        buttons[2].click()
         # Should be redirected to homepage; top-right links should be "Login"/"Sign Up" again
         self.assertOnPage("/")
         buttons = self.header_buttons()
-        assert len(buttons) == 2
-        assert buttons[0].text == "Login"
-        assert buttons[1].text == "Sign Up"
+        assert len(buttons) == 3
+        assert buttons[0].text == "River Flows"
+        assert buttons[1].text == "Login"
+        assert buttons[2].text == "Sign Up"
 
         # Navigate to login page and find 'reset password' button
-        buttons[0].click()
+        buttons[1].click()
         self.assertOnPage("/accounts/login/")
         reset_button = self.selenium.find_element(By.CLASS_NAME, "btn-secondary")
         reset_button.click()
@@ -304,8 +344,8 @@ class WebAppTestCase(StaticLiveServerTestCase):
         # Find Alerts button and click
         self.assertOnPage("/")
         buttons = self.header_buttons()
-        assert buttons[0].text == "Alerts"
-        buttons[0].click()
+        assert buttons[1].text == "Alerts"
+        buttons[1].click()
 
         # Check we're on alerts page
         self.assertOnPage("/alerts")

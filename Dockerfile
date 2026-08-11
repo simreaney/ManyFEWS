@@ -28,8 +28,8 @@
 #
 # ----------------------------------------------------------------------------
 # Build node / Frontend assets
-FROM node:lts-alpine as build_node
-MAINTAINER Samantha Finnigan <samantha.finnigan@durham.ac.uk>, ARC Durham University
+FROM node:lts-alpine AS build_node
+LABEL maintainer="Samantha Finnigan <samantha.finnigan@durham.ac.uk>, ARC Durham University"
 
 # Toolchain for any dependency without a prebuilt musl binary (node-gyp)
 RUN apk add --update python3 make g++ && \
@@ -55,7 +55,7 @@ RUN npm run build
 # Miniforge (conda-forge only) rather than continuumio/miniconda3: the latter
 # configures the Anaconda 'defaults' channel, which conda 25.3+ refuses to use
 # without an interactively accepted Terms of Service, breaking the build.
-FROM condaforge/miniforge3 as build_python
+FROM condaforge/miniforge3 AS build_python
 
 # https://pythonspeed.com/articles/conda-docker-image-size/
 # Create the environment:
@@ -86,7 +86,7 @@ SHELL ["/bin/bash", "--login", "-c"]
 
 # ----------------------------------------------------------------------------
 # Create static files for ManyFEWS site using django (for deployment on standard webserver)
-FROM build_python as build_static
+FROM build_python AS build_static
 # Set dummy variables for settings that must be present at import time (SECRET_KEY,
 # DB_PASSWORD have no default and are only needed for a real deploy) so collectstatic
 # doesn't error out, and the STATIC_ROOT var for the location to write static files
@@ -102,8 +102,8 @@ RUN source /venv/bin/activate && \
 
 # ----------------------------------------------------------------------------
 # Create a python docker container base for gunicorn and celery
-FROM debian:bookworm-slim as manyfews
-MAINTAINER Samantha Finnigan <samantha.finnigan@durham.ac.uk>, ARC Durham University
+FROM debian:bookworm-slim AS manyfews
+LABEL maintainer="Samantha Finnigan <samantha.finnigan@durham.ac.uk>, ARC Durham University"
 WORKDIR /app
 
 # set environment variables (don't buffer stdout, don't write bytecode)
@@ -137,13 +137,27 @@ RUN echo "Make sure django is installed:" && \
 COPY manyfews/ .
 COPY Data /Data
 
+# Use the freshly-built bundle (not whatever's committed to webapp/static) so
+# collectstatic below hashes the same bytes as the `build_static` stage does -
+# otherwise gunicorn's manifest and nginx's actual files could disagree on the
+# hashed filename for the same content.
+COPY --from=build_node /app/webapp/static/index-bundle.js webapp/static/index-bundle.js
+
+# Pre-render the ManifestStaticFilesStorage hash manifest (STORAGES in
+# settings.py) so {% static %} tags resolve to the same content-hashed
+# filenames nginx serves. Without this, a changed static file would keep the
+# same URL and the 1-year cache in config/subsite.conf would serve it stale
+# forever.
+RUN SECRET_KEY=dummy-build-time-secret-key DB_PASSWORD=dummy \
+    python manage.py collectstatic --noinput
+
 CMD ["python manage.py migrate && \
       python manage.py runserver 0.0.0.0:5000"]
 
 
 # ----------------------------------------------------------------------------
 # Create celery container
-FROM manyfews as celery
+FROM manyfews AS celery
 
 # Add a celery user to avoid running as root
 RUN mkdir -p /var/log/celery/ /var/run/celery/ &&\
@@ -163,17 +177,16 @@ CMD ["celery -A manyfews worker --loglevel=INFO \
 
 # ----------------------------------------------------------------------------
 # Create gunicorn container
-FROM manyfews as gunicorn
+FROM manyfews AS gunicorn
 
 EXPOSE 5000
 CMD ["python manage.py migrate && \
-      python manage.py loaddata webapp/fixtures/initial_data.json && \
       gunicorn --timeout=300 --log-file=- --bind=0.0.0.0:5000 manyfews.wsgi"]
 
 
 # ----------------------------------------------------------------------------
 # Deployment stage
-FROM nginx:stable-alpine as web
+FROM nginx:stable-alpine AS web
 COPY --from=build_static /app/static /var/www/html/static
 COPY config/subsite.conf /etc/nginx/conf.d/default.conf
 COPY config/nginx-configure-upstream.sh /docker-entrypoint.d/40-configure-upstream.sh

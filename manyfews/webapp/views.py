@@ -1,8 +1,10 @@
+from collections import defaultdict
 from datetime import date, timedelta
 import logging
 import random
 
 from django.conf import settings
+from django.db.models import Max
 from django.forms import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
@@ -11,11 +13,14 @@ from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+import numpy as np
 
 from calculations.models import (
     AggregatedDepthPrediction,
     DepthPrediction,
     PercentageFloodRisk,
+    RiverFlowCalculationOutput,
+    RiverFlowPrediction,
 )
 from .alerts import TwilioAlerts
 from .forms import UserAlertForm
@@ -113,6 +118,67 @@ def depth_predictions(request, day, hour, bounding_box):
             }
         )
     return JsonResponse({"items": items, "max_depth": settings.MAX_FLOOD_DEPTH})
+
+
+def river_flows(request):
+    template = loader.get_template("webapp/river_flows.html")
+
+    latest_prediction_date = RiverFlowCalculationOutput.objects.aggregate(
+        Max("prediction_date")
+    )["prediction_date__max"]
+
+    forecast_series = []
+    if latest_prediction_date is not None:
+        outputs = RiverFlowCalculationOutput.objects.filter(
+            prediction_date=latest_prediction_date
+        )
+
+        # A single forecast_time can have several RiverFlowCalculationOutput
+        # rows (one per Open-Meteo weather ensemble member), each with 100
+        # RiverFlowPrediction rows (one per rainfall-runoff parameter set).
+        # Gather every (forecast_time, prediction_index, river_flow) triple in
+        # one query, then group in Python: pooling everything per forecast
+        # time gives the full uncertainty spread for the percentile ribbon,
+        # while averaging per prediction_index across weather members gives
+        # one flow value per parameter set for the "every prediction" lines.
+        rows = RiverFlowPrediction.objects.filter(
+            calculation_output__in=outputs
+        ).values_list(
+            "calculation_output__forecast_time", "prediction_index", "river_flow"
+        )
+
+        flows_by_time = defaultdict(list)
+        flows_by_time_and_index = defaultdict(lambda: defaultdict(list))
+        for forecast_time, prediction_index, river_flow in rows:
+            flows_by_time[forecast_time].append(river_flow)
+            flows_by_time_and_index[forecast_time][prediction_index].append(river_flow)
+
+        for forecast_time in sorted(flows_by_time):
+            flows = flows_by_time[forecast_time]
+            index_flows = flows_by_time_and_index[forecast_time]
+            predictions = [
+                sum(values) / len(values)
+                for _, values in sorted(index_flows.items())
+            ]
+            forecast_series.append(
+                {
+                    "forecast_time": forecast_time.isoformat(),
+                    "predictions": predictions,
+                    "lower_centile": float(np.percentile(flows, 10)),
+                    "median": float(np.median(flows)),
+                    "upper_centile": float(np.percentile(flows, 90)),
+                }
+            )
+
+    return HttpResponse(
+        template.render(
+            {
+                "forecast_data": forecast_series,
+                "prediction_date": latest_prediction_date,
+            },
+            request,
+        )
+    )
 
 
 @login_required

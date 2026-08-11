@@ -3,6 +3,7 @@
 $titleColor: #68246D;
 
 body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   height: 100%;
   margin: 0;
 
@@ -118,6 +119,47 @@ body {
 
     #map {
       height: 100%;
+    }
+  }
+
+  .river-flows {
+    padding: 20px;
+
+    .header {
+      margin-bottom: 20px;
+    }
+
+    .river-flow-chart {
+      height: calc(100vh - 250px);
+
+      svg {
+        display: block;
+      }
+
+      .x-axis, .y-axis {
+        font-size: 12px;
+      }
+
+      .axis-label {
+        font-size: 13px;
+      }
+
+      .river-flow-line {
+        stroke: $titleColor;
+        stroke-width: 1px;
+        opacity: 0.15;
+      }
+
+      .river-flow-ribbon {
+        fill: $titleColor;
+        opacity: 0.25;
+        stroke: none;
+      }
+
+      .river-flow-median {
+        stroke: $titleColor;
+        stroke-width: 2px;
+      }
     }
   }
 
