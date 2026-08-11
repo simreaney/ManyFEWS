@@ -157,8 +157,7 @@ def river_flows(request):
             flows = flows_by_time[forecast_time]
             index_flows = flows_by_time_and_index[forecast_time]
             predictions = [
-                sum(values) / len(values)
-                for _, values in sorted(index_flows.items())
+                sum(values) / len(values) for _, values in sorted(index_flows.items())
             ]
             forecast_series.append(
                 {

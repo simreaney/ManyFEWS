@@ -201,8 +201,7 @@ class WebAppTestCase(StaticLiveServerTestCase):
         # area and a single median line, no per-prediction lines.
         self.wait_for_element(By.CSS_SELECTOR, ".river-flow-ribbon")
         assert (
-            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-median"))
-            == 1
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-median")) == 1
         )
         assert (
             len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-line")) == 0
@@ -216,12 +215,10 @@ class WebAppTestCase(StaticLiveServerTestCase):
             lambda d: len(d.find_elements(By.CSS_SELECTOR, ".river-flow-line")) > 0
         )
         assert (
-            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-line"))
-            == 100
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-line")) == 100
         )
         assert (
-            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-ribbon"))
-            == 0
+            len(self.selenium.find_elements(By.CSS_SELECTOR, ".river-flow-ribbon")) == 0
         )
 
     def test_users(self):

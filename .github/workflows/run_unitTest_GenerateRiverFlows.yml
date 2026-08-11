@@ -91,6 +91,16 @@ jobs:
           sudo Xvfb -ac :99 -screen 0 1280x1024x24 > /dev/null 2>&1 & # optional
 
       -
+        name: Collect static files
+        # STORAGES["staticfiles"] is ManifestStaticFilesStorage (settings.py), so
+        # {% static %} tags resolve hashed filenames from a manifest that only
+        # collectstatic generates. Without this step every page using base.html
+        # raises "Missing staticfiles manifest entry" and the Selenium tests below
+        # fail before they can find any element.
+        run: python manage.py collectstatic --noinput
+        working-directory: manyfews
+
+      -
         name: Run Django tests
         env:
           MAP_URL: ${{ secrets.MAP_URL }}
