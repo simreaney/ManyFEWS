@@ -36,7 +36,22 @@ A multi-stage [Dockerfile](Dockerfile) is included in this repository. Pre-built
 
 ### Running Locally
 
-The [docker-compose.yml](docker-compose.yml) file in the root of this repository includes the project dependencies and can be run to set up an instant working development system. For manual setup instructions, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
+The [docker-compose.yml](docker-compose.yml) file in the root of this repository includes the project dependencies (Postgres/PostGIS, RabbitMQ, Celery, Gunicorn, Nginx) and can be run to set up an instant working system, with no conda/Node/Postgres install required on the host:
+
+```bash
+$ cp .env.example .env
+$ docker compose up --build
+```
+
+Then visit http://localhost:8000. To log in to the admin site, create a superuser in the running `gunicorn` container:
+
+```bash
+$ docker compose exec gunicorn python manage.py createsuperuser
+```
+
+[.env.example](.env.example) is filled with working placeholder values, so the site comes up as-is; SMS/email alerts won't actually send until you replace the `TWILIO_*`/`EMAIL_*` placeholders with real credentials. Loading real model parameters and a river channel (steps 15/17 in [DEVELOPMENT.md](docs/DEVELOPMENT.md#setup)) is still needed for the flood predictions to show real data.
+
+For manual (non-Docker) setup instructions, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ### Deployment
 
