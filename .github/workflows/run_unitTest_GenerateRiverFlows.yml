@@ -107,6 +107,11 @@ jobs:
           EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
           EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
           DISPLAY: :99
+          # StaticLiveServerTestCase serves static files by their literal
+          # source filename via the staticfiles finders - it has no idea
+          # about the ManifestStaticFilesStorage hash manifest used above, so
+          # {% static %} tags would resolve to hashed URLs that 404 here.
+          STATICFILES_STORAGE_BACKEND: django.contrib.staticfiles.storage.StaticFilesStorage
         run: coverage run --source='.' manage.py test
         working-directory: manyfews
 

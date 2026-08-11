@@ -240,7 +240,15 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        # Overridable so tests can use the plain (unhashed) backend:
+        # StaticLiveServerTestCase serves files by their literal source
+        # filename via the staticfiles finders, with no knowledge of the
+        # ManifestStaticFilesStorage hash manifest, so {% static %} tags
+        # would otherwise resolve to hashed URLs that 404 in tests.
+        "BACKEND": env.str(
+            "STATICFILES_STORAGE_BACKEND",
+            "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        ),
     },
 }
 
