@@ -1,0 +1,7 @@
+{% extends "admin/submit_line.html" %}
+{% load i18n %}
+
+{% block submit-row %}
+{{ block.super }}
+<input type="submit" value="{% translate 'Recalculate flood flows' %}" name="_recalculate_flood_flows">
+{% endblock %}

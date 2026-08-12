@@ -87,6 +87,14 @@ NB: You must install a browser driver to run automated UI tests. You can try usi
 
     `npm install` only needs to be run once, or if a new JavaScript package is added. `npm run build` should be run whenever a JavaScript or Sass file is updated. For development purposes you can run `npm run dev` to build the files on-the-fly whilst editing the JavaScript/Sass, but you should run `npm run build` before committing.
 
+    Similarly, compile the translation catalogs in `locale/` (the `.po` source files are committed, but the compiled `.mo` files Django actually loads are not, so you need to build these locally too):
+
+    ```bash
+    python manage.py compilemessages
+    ```
+
+    Run this again whenever a `.po` file changes. The Docker build does this automatically, so it's only needed for a manual/non-Docker setup like this one.
+
 11. Run the tests to check things are installed correctly:
 
     ```bash

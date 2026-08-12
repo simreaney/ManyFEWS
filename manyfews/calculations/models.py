@@ -142,3 +142,43 @@ class AggregatedDepthPrediction(AbstractDepthPrediction):
 class PercentageFloodRisk(models.Model):
     date = models.DateTimeField()
     risk = models.FloatField()
+
+
+class TestModeSettings(models.Model):
+    """
+    Singleton toggle for "test mode". When enabled, the river flow
+    calculation overwrites STORM_DAYS_AHEAD's forecast rainfall with a
+    STORM_TOTAL_MM storm (see generate_river_flows.prepareWeatherForecastData),
+    so the forecast -> river flow -> flood depth pipeline can be exercised
+    against a known, reliably-flood-triggering rainfall event without
+    waiting for a real one. Only ever one row (pk=1); use `is_enabled()`
+    rather than querying the table directly.
+    """
+
+    STORM_TOTAL_MM = 100.0
+    STORM_DAYS_AHEAD = 2
+
+    enabled = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, a 100mm storm is injected 2 days into the "
+            "forecast before every river flow calculation. Click "
+            "'Recalculate flood flows' below after changing this for it "
+            "to take effect."
+        ),
+    )
+
+    class Meta:
+        verbose_name = "Test mode"
+        verbose_name_plural = "Test mode"
+
+    def __str__(self):
+        return "Test mode"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def is_enabled(cls):
+        return cls.objects.filter(pk=1, enabled=True).exists()

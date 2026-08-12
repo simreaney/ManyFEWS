@@ -28,6 +28,7 @@ from .models import (
     DepthPrediction,
     RiverFlowPrediction,
     RiverFlowCalculationOutput,
+    TestModeSettings,
 )
 from .open_meteo import prepareOpenMeteo, prepareOpenMeteoHistorical, offsetTime
 
@@ -255,6 +256,84 @@ def dailyModelUpdate():
             initialDataSave=(member == control_member),
             mode="daily",
         )
+
+
+@shared_task(name="calculations.recalculateFloodFlows", bind=True)
+def recalculate_flood_flows(self):
+    """
+    Re-run today's forecast-based river flow calculation and flood model,
+    using the forecast weather already stored for today (does not re-fetch
+    weather, and does not touch tomorrow's saved initial conditions - that
+    stays the scheduled dailyModelUpdate's job).
+
+    This is what the admin "Recalculate flood flows" button (next to the
+    Test mode toggle) calls, so a change to TestModeSettings is reflected
+    in the map/graphs without waiting for tomorrow's scheduled run. It does
+    NOT trigger "Calculate percentage risks" or "Send all alerts" - those
+    stay on their existing schedule, so a test storm never triggers a real
+    SMS/email alert to users.
+    """
+    location = Point(settings.LON_VALUE, settings.LAT_VALUE)
+    today = offsetTime(backDays=0)
+
+    initialConditions = InitialCondition.objects.filter(date=today[0]).filter(
+        location=location
+    )
+    if len(initialConditions) == 0:
+        raise RuntimeError(
+            "No Initial Conditions found for today - run calculations.dailyModelUpdate first."
+        )
+
+    slowFlowRateList = []
+    fastFlowRateList = []
+    storageLevelList = []
+    for data in initialConditions:
+        slowFlowRateList.append(data.slow_flow_rate)
+        fastFlowRateList.append(data.fast_flow_rate)
+        storageLevelList.append(data.storage_level)
+    F0 = np.array(list(zip(storageLevelList, slowFlowRateList, fastFlowRateList)))
+
+    todaysForecast = NoaaForecast.objects.filter(issue_date__range=(today[0], today[1]))
+    members = list(
+        todaysForecast.order_by("ensemble_member")
+        .values_list("ensemble_member", flat=True)
+        .distinct()
+    )
+    if not members:
+        raise RuntimeError(
+            "No Open-Meteo forecast data found for today - run calculations.dailyModelUpdate first."
+        )
+
+    # Clear today's previously-calculated river flow forecast so re-running
+    # doesn't duplicate rows for the same (prediction_date, forecast_time) -
+    # RiverFlowPrediction rows cascade-delete with their
+    # RiverFlowCalculationOutput.
+    RiverFlowCalculationOutput.objects.filter(prediction_date=today[0]).delete()
+
+    logger.info(
+        f"Recalculating river flow model for {len(members)} ensemble members "
+        f"(test mode {'ON' if TestModeSettings.is_enabled() else 'off'})"
+    )
+
+    for member in members:
+        memberForecastData = prepareWeatherForecastData(
+            predictionDate=today[0],
+            location=location,
+            dataSource="forecast",
+            ensemble_member=member,
+        )
+
+        runningGenerateRiverFlows(
+            predictionDate=today[0],
+            dataLocation=location,
+            weatherForecast=memberForecastData,
+            initialData=F0.copy(),
+            riverFlowSave=True,
+            initialDataSave=False,
+            mode="daily",
+        )
+
+    run_all_flood_models()
 
 
 @shared_task(name="Run flood model")

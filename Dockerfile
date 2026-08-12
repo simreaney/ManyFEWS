@@ -88,9 +88,10 @@ SHELL ["/bin/bash", "--login", "-c"]
 # Create static files for ManyFEWS site using django (for deployment on standard webserver)
 FROM build_python AS build_static
 # Set dummy variables for settings that must be present at import time (SECRET_KEY,
-# DB_PASSWORD have no default and are only needed for a real deploy) so collectstatic
-# doesn't error out, and the STATIC_ROOT var for the location to write static files
-ENV SECRET_KEY=dummy-build-time-secret-key DB_PASSWORD=dummy STATIC_ROOT='/app/static'
+# DB_PASSWORD, RABBITMQ_DEFAULT_PASS have no default and are only needed for a
+# real deploy) so collectstatic doesn't error out, and the STATIC_ROOT var for
+# the location to write static files
+ENV SECRET_KEY=dummy-build-time-secret-key DB_PASSWORD=dummy RABBITMQ_DEFAULT_PASS=dummy STATIC_ROOT='/app/static'
 COPY manyfews/ .
 COPY --from=build_node /app/webapp/static/index-bundle.js /app/webapp/static/
 
@@ -117,6 +118,7 @@ ENV SSL_CERT_FILE /etc/ssl/certs/ca-certificates.crt
 RUN apt-get update -q && \
     apt-get install -q -y --no-install-recommends \
         ca-certificates \
+        gettext \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -148,8 +150,14 @@ COPY --from=build_node /app/webapp/static/index-bundle.js webapp/static/index-bu
 # filenames nginx serves. Without this, a changed static file would keep the
 # same URL and the 1-year cache in config/subsite.conf would serve it stale
 # forever.
-RUN SECRET_KEY=dummy-build-time-secret-key DB_PASSWORD=dummy \
-    python manage.py collectstatic --noinput
+#
+# Also compile the .po translation catalogs (locale/) into the .mo files
+# Django actually loads at runtime; .mo files are build artifacts and aren't
+# committed to the repo (see .gitignore), so this step is required for
+# translations to work.
+RUN export SECRET_KEY=dummy-build-time-secret-key DB_PASSWORD=dummy RABBITMQ_DEFAULT_PASS=dummy && \
+    python manage.py collectstatic --noinput && \
+    python manage.py compilemessages
 
 CMD ["python manage.py migrate && \
       python manage.py runserver 0.0.0.0:5000"]

@@ -1,5 +1,6 @@
 {% extends 'webapp/base.html' %}
 {% load leaflet_tags %}
+{% load i18n %}
 
 {% block content %}
     <div class="header container-fluid row">
@@ -9,10 +10,17 @@
                     <p class="day">{{ d.date|date:"D" }}</p>
                     <p class="date">{{ d.date|date:"M j" }}</p>
                 </div>
+                <div class="rainfall row">
+                  <div class="rainfall-box" data-bs-toggle="tooltip" data-bs-placement="top"
+                       title="{% trans 'Median rainfall forecast' %} {{ d.median_rainfall|floatformat:1 }}mm"
+                       data-rainfall="{{ d.rainfall_ratio|floatformat:'-4' }}">
+                    {{ d.median_rainfall|floatformat:0 }}mm
+                  </div>
+                </div>
                 <div class="hourly-risk row">
                   <!-- Add tooltip with risk percentage -->
                   {% for h in d.risks %}
-                    <div class="btn col-3 risk" data-bs-toggle="tooltip" data-bs-placement="top" title="Flood risk {{ h.percentage_risk|floatformat:'0' }}%"
+                    <div class="btn col-3 risk" data-bs-toggle="tooltip" data-bs-placement="top" title="{% trans 'Flood risk' %} {{ h.percentage_risk|floatformat:'0' }}%"
                          data-risk="{{ h.risk }}" data-day="{{ d.day_number }}" data-hour="{{ h.hour }}">
                       {{ h.hour|stringformat:"02d" }}
                     </div>
@@ -25,7 +33,11 @@
         {% leaflet_map "map" %}
     </div>
     <script type="text/javascript">
-      window.initialiseDepthMap();
+      window.initialiseDepthMap({
+        depth: "{% trans 'Depth' %}",
+        lowerCentile: "{% trans 'Lower centile' %}",
+        upperCentile: "{% trans 'Upper centile' %}"
+      });
       window.initialiseDailyRisks();
     </script>
 {% endblock content %}

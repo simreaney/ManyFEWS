@@ -167,3 +167,9 @@ coverage.xml
 # Development Ephemera
 dbexport.pgsql
 k8s-deploy.yml
+
+# manyfews_core derived caches (rebuilt automatically from Data/*.csv)
+Data/*.npy
+core/**/__pycache__/
+core/.pytest_cache/
+core/*.egg-info/

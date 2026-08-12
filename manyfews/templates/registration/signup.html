@@ -1,13 +1,14 @@
 {% extends 'webapp/base.html' %}
 {% load crispy_forms_tags %}
+{% load i18n %}
 
 {% block content %}
 <div class="container manyfews-forms">
-<h3>Sign up</h3>
+<h3>{% trans "Sign up" %}</h3>
   <form method="post" class="account-form">
     {% csrf_token %}
     {{ form|crispy }}
-    <button type="submit" class="btn btn-success" id="signup-submit">Sign Up</button>
+    <button type="submit" class="btn btn-success" id="signup-submit">{% trans "Sign Up" %}</button>
   </form>
 </div>
 {% endblock %}

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
+from urllib.parse import quote
 import environ
 
 # Initialise environment variables
@@ -27,6 +28,12 @@ DB_USER = env.str("DB_USER", "manyfews")
 DB_PASSWORD = env.str("DB_PASSWORD")
 DB_HOST = env.str("DB_HOST", "localhost")
 DB_PORT = env.int("DB_PORT", 5432)
+
+# RabbitMQ (Celery broker) details
+RABBITMQ_DEFAULT_USER = env.str("RABBITMQ_DEFAULT_USER", "guest")
+RABBITMQ_DEFAULT_PASS = env.str("RABBITMQ_DEFAULT_PASS")
+RABBITMQ_HOST = env.str("RABBITMQ_HOST", "localhost")
+RABBITMQ_PORT = env.int("RABBITMQ_PORT", 5672)
 
 # Model spin-up: how many days of historical weather to back-fill on first run
 INITIAL_BACKTIME = env.int("INITIAL_BACKTIME", 29)
@@ -99,6 +106,10 @@ MEDIA_ROOT = env.str(
 # Maximum depth for floods in m (used to determine colour bands for flood depths)
 MAX_FLOOD_DEPTH = env.float("MAX_FLOOD_DEPTH", 2)
 
+# Daily rainfall (mm) that maps to the darkest shade on the home page's
+# median rainfall forecast boxes.
+MAX_DAILY_RAINFALL = env.float("MAX_DAILY_RAINFALL", 50)
+
 # =======================================================================================
 # End of user configurable settings
 # =======================================================================================
@@ -148,6 +159,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -166,6 +178,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.i18n",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "webapp.context_processors.include_login_form",
@@ -219,6 +232,16 @@ LOGOUT_REDIRECT_URL = "/"
 
 LANGUAGE_CODE = "en-us"
 
+# Languages the site is translated into. LocaleMiddleware picks the best match
+# for the visitor's browser (i.e. their computer's language settings) from
+# this list via the Accept-Language header, falling back to LANGUAGE_CODE.
+LANGUAGES = [
+    ("en", "English"),
+    ("id", "Bahasa Indonesia"),
+]
+
+LOCALE_PATHS = [BASE_DIR / "locale"]
+
 TIME_ZONE = env.str("TIME_ZONE", "UTC")
 
 USE_I18N = True
@@ -265,11 +288,37 @@ LEAFLET_CONFIG = {
     "MIN_ZOOM": 10,
     "MAX_ZOOM": 25,
     "DEFAULT_PRECISION": 6,
-    "TILES": [("OpenStreetMap", MAP_URL, {"attribution": MAP_ATTRIBUTION})],
+    # First entry is shown by default; django-leaflet automatically adds a
+    # layer switcher control once more than one tile source is listed here.
+    "TILES": [
+        ("OpenStreetMap", MAP_URL, {"attribution": MAP_ATTRIBUTION}),
+        (
+            "ESRI Aerial",
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            {
+                "attribution": "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, "
+                "AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+            },
+        ),
+        (
+            "ESRI Dark Grey",
+            "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+            {"attribution": "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"},
+        ),
+    ],
 }
 
 # Celery task configuration
 
+# Without this, celery falls back to its library default
+# (amqp://guest:guest@127.0.0.1:5672//), which is never right for a
+# containerised RabbitMQ - it silently never connects.
+CELERY_BROKER_URL = "amqp://{user}:{password}@{host}:{port}//".format(
+    user=quote(RABBITMQ_DEFAULT_USER, safe=""),
+    password=quote(RABBITMQ_DEFAULT_PASS, safe=""),
+    host=RABBITMQ_HOST,
+    port=RABBITMQ_PORT,
+)
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "django-cache"

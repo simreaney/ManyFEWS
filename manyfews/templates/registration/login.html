@@ -1,17 +1,18 @@
 <!-- templates/registration/login.html -->
 {% extends 'webapp/base.html' %}
 {% load crispy_forms_tags %}
+{% load i18n %}
 
 {% block content %}
 <div class="container manyfews-forms">
-<h3>Log In</h3>
+<h3>{% trans "Log In" %}</h3>
 <form method="post" class="account-form">
 
   {% csrf_token %}
   {{ form|crispy }}
   <div class="form-group auth">
-    <button type="submit" class="btn btn-success" id="login-submit">Log In</button>
-    <a href="{% url 'password_reset' %}" class="btn btn-secondary">Reset password</a>
+    <button type="submit" class="btn btn-success" id="login-submit">{% trans "Log In" %}</button>
+    <a href="{% url 'password_reset' %}" class="btn btn-secondary">{% trans "Reset password" %}</a>
   </div>
 </form>
 </div>

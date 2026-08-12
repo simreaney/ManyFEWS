@@ -4,13 +4,15 @@ import os, tempfile
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import MultiPolygon, Point, Polygon
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.urls import reverse
 import numpy as np
 from unittest import mock
 
 from webapp.models import UserAlert, UserPhoneNumber, AlertType
 from .alerts import send_phone_alerts_for_user
 from .flood_risk import predict_depth, predict_depths
+from .generate_river_flows import prepareWeatherForecastData
 from .models import (
     DepthPrediction,
     FloodModelParameters,
@@ -21,10 +23,12 @@ from .models import (
     AggregatedWeatherReading,
     RiverFlowPrediction,
     RiverFlowCalculationOutput,
+    TestModeSettings,
 )
 from .tasks import (
     initialModelSetUp,
     dailyModelUpdate,
+    recalculate_flood_flows,
     send_alerts,
     load_params_from_csv,
 )
@@ -396,3 +400,216 @@ class FloodCalculationTests(TestCase):
             predict_depths(self.test_date, dummy_param_list, None)
 
         self.assertEqual(DepthPrediction.objects.filter(date=self.test_date).count(), 4)
+
+
+class TestModeTests(TestCase):
+    """
+    Tests for the "test mode" 100mm/+2-day storm injection
+    (TestModeSettings, generate_river_flows._testStormOverrides) and the
+    admin "Recalculate flood flows" button (tasks.recalculate_flood_flows).
+    """
+
+    def setUp(self):
+        self.location = Point(settings.LON_VALUE, settings.LAT_VALUE)
+        self.issue_date, _ = offsetTime(backDays=0)
+
+        rows = []
+        for day in range(4):
+            for bucket in range(4):
+                rows.append(
+                    NoaaForecast(
+                        location=self.location,
+                        date=self.issue_date + timedelta(hours=day * 24 + bucket * 6),
+                        issue_date=self.issue_date,
+                        ensemble_member="control",
+                        precipitation=1.0,
+                        min_temperature=290.0,
+                        max_temperature=295.0,
+                        wind_u=1.0,
+                        wind_v=1.0,
+                        relative_humidity=70.0,
+                    )
+                )
+        NoaaForecast.objects.bulk_create(rows)
+
+    def _forecastPrecipByDay(self):
+        data = prepareWeatherForecastData(
+            predictionDate=self.issue_date,
+            location=self.location,
+            dataSource="forecast",
+            ensemble_member="control",
+        )
+        return data[:, 5].reshape(-1, 4)  # 4 six-hour buckets/day
+
+    def test_storm_not_injected_when_disabled(self):
+        by_day = self._forecastPrecipByDay()
+        assert (by_day == 1.0).all()
+
+    def test_storm_injected_when_enabled(self):
+        TestModeSettings.objects.create(enabled=True)
+        by_day = self._forecastPrecipByDay()
+
+        storm_day = by_day[TestModeSettings.STORM_DAYS_AHEAD]
+        assert storm_day.sum() == TestModeSettings.STORM_TOTAL_MM
+        assert (storm_day == TestModeSettings.STORM_TOTAL_MM / 4).all()
+
+        # Every other day is untouched.
+        other_days = np.delete(by_day, TestModeSettings.STORM_DAYS_AHEAD, axis=0)
+        assert (other_days == 1.0).all()
+
+    def test_disabling_reverts_to_real_forecast(self):
+        test_mode = TestModeSettings.objects.create(enabled=True)
+        by_day = self._forecastPrecipByDay()
+        assert by_day[TestModeSettings.STORM_DAYS_AHEAD].sum() == (
+            TestModeSettings.STORM_TOTAL_MM
+        )
+
+        test_mode.enabled = False
+        test_mode.save()
+        by_day = self._forecastPrecipByDay()
+        assert (by_day == 1.0).all()
+
+    def test_is_singleton(self):
+        TestModeSettings.objects.create(enabled=True)
+        # Saving again (e.g. a second .objects.create/save call) must reuse
+        # pk=1 rather than creating a second row.
+        TestModeSettings(enabled=False).save()
+        assert TestModeSettings.objects.count() == 1
+        assert not TestModeSettings.is_enabled()
+
+
+class RecalculateFloodFlowsTests(TestCase):
+    # Force a forecast horizon that reaches past TestModeSettings.STORM_DAYS_AHEAD
+    # regardless of the environment's own OPEN_METEO_FORECAST_DAYS setting
+    # (e.g. local dev envs may shrink it to keep test_initial_model_setup fast).
+    @override_settings(OPEN_METEO_FORECAST_DAYS=4, OPEN_METEO_ENSEMBLE_MEMBERS=2)
+    @mock.patch(
+        "calculations.open_meteo.requests.get", side_effect=_mock_open_meteo_get
+    )
+    @mock.patch("calculations.tasks.run_all_flood_models")
+    def test_recalculate_flood_flows(self, run_all_flood_models, mock_get):
+        # Set up initial conditions and today's forecast, as the daily
+        # scheduled pipeline would have already done.
+        initialModelSetUp()
+        dailyModelUpdate()
+
+        today, _ = offsetTime(backDays=0)
+        num_members = settings.OPEN_METEO_ENSEMBLE_MEMBERS
+        buckets_per_member = settings.OPEN_METEO_FORECAST_DAYS * 4
+
+        baseline_output_count = RiverFlowCalculationOutput.objects.filter(
+            prediction_date=today
+        ).count()
+        assert baseline_output_count == num_members * buckets_per_member
+
+        storm_day_start = today + timedelta(days=TestModeSettings.STORM_DAYS_AHEAD)
+        storm_day_end = storm_day_start + timedelta(days=1)
+
+        baseline_storm_rainfall = list(
+            RiverFlowCalculationOutput.objects.filter(
+                prediction_date=today,
+                forecast_time__gte=storm_day_start,
+                forecast_time__lt=storm_day_end,
+            ).values_list("rain_fall", flat=True)
+        )
+        assert baseline_storm_rainfall  # sanity check: rows exist for that day
+        assert all(rain_fall < 50 for rain_fall in baseline_storm_rainfall)
+
+        # Turn on test mode and recalculate.
+        TestModeSettings.objects.create(enabled=True)
+        recalculate_flood_flows()
+
+        run_all_flood_models.assert_called_once()
+
+        # Recalculating must not duplicate today's river flow output rows...
+        self.assertEqual(
+            RiverFlowCalculationOutput.objects.filter(prediction_date=today).count(),
+            baseline_output_count,
+        )
+        # ...or add extra initial-condition rows: it's not this task's job to
+        # redefine tomorrow's saved model state (that's dailyModelUpdate's).
+        self.assertEqual(InitialCondition.objects.count(), 200)
+
+        expected_storm_rain_fall = (
+            TestModeSettings.STORM_TOTAL_MM / 4 / settings.MODEL_TIMESTEP
+        )
+        storm_rainfall = list(
+            RiverFlowCalculationOutput.objects.filter(
+                prediction_date=today,
+                forecast_time__gte=storm_day_start,
+                forecast_time__lt=storm_day_end,
+            ).values_list("rain_fall", flat=True)
+        )
+        for rain_fall in storm_rainfall:
+            self.assertAlmostEqual(rain_fall, expected_storm_rain_fall, places=5)
+
+        # Turning test mode back off and recalculating restores the real
+        # forecast's rainfall.
+        TestModeSettings.objects.filter(pk=1).update(enabled=False)
+        recalculate_flood_flows()
+
+        self.assertEqual(
+            RiverFlowCalculationOutput.objects.filter(prediction_date=today).count(),
+            baseline_output_count,
+        )
+        restored_storm_rainfall = list(
+            RiverFlowCalculationOutput.objects.filter(
+                prediction_date=today,
+                forecast_time__gte=storm_day_start,
+                forecast_time__lt=storm_day_end,
+            ).values_list("rain_fall", flat=True)
+        )
+        self.assertCountEqual(restored_storm_rainfall, baseline_storm_rainfall)
+
+
+class TestModeAdminTests(TestCase):
+    """Smoke tests for the Test mode admin page (singleton toggle + button)."""
+
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username="admin", password="password", email="admin@example.com"
+        )
+        self.client.force_login(self.admin_user)
+
+    def test_changelist_redirects_to_singleton(self):
+        response = self.client.get(
+            reverse("admin:calculations_testmodesettings_changelist")
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse("admin:calculations_testmodesettings_change", args=[1]),
+        )
+        self.assertTrue(TestModeSettings.objects.filter(pk=1).exists())
+
+    def test_change_page_has_recalculate_button(self):
+        TestModeSettings.objects.create(enabled=False)
+        response = self.client.get(
+            reverse("admin:calculations_testmodesettings_change", args=[1])
+        )
+        self.assertContains(response, "Recalculate flood flows")
+        self.assertContains(response, 'name="_recalculate_flood_flows"')
+
+    @mock.patch("calculations.admin.recalculate_flood_flows")
+    def test_recalculate_button_saves_toggle_and_triggers_task(
+        self, recalculate_flood_flows
+    ):
+        TestModeSettings.objects.create(enabled=False)
+        response = self.client.post(
+            reverse("admin:calculations_testmodesettings_change", args=[1]),
+            {"enabled": "on", "_recalculate_flood_flows": "Recalculate flood flows"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TestModeSettings.objects.get(pk=1).enabled)
+        recalculate_flood_flows.delay.assert_called_once()
+
+    def test_plain_save_does_not_trigger_task(self):
+        TestModeSettings.objects.create(enabled=False)
+        with mock.patch("calculations.admin.recalculate_flood_flows") as task:
+            response = self.client.post(
+                reverse("admin:calculations_testmodesettings_change", args=[1]),
+                {"enabled": "on", "_save": "Save"},
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TestModeSettings.objects.get(pk=1).enabled)
+        task.delay.assert_not_called()

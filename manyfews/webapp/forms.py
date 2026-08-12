@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.forms import ModelChoiceField, ModelForm, ValidationError
+from django.utils.translation import gettext_lazy as _
 from leaflet.forms.fields import PolygonField
 from phonenumber_field.formfields import PhoneNumberField
 
@@ -37,7 +38,9 @@ class UserAlertForm(ModelForm):
             new_number = self.cleaned_data["new_phone_number"]
             if not new_number:
                 raise ValidationError(
-                    "You must provide a new phone number or choose an existing one."
+                    _(
+                        "You must provide a new phone number or choose an existing one."
+                    )
                 )
             return new_number
 
@@ -67,6 +70,8 @@ class UserAlertForm(ModelForm):
                         e,
                     )
                     raise ValidationError(
-                        "Unable to verify phone number. Please check the number and try again."
+                        _(
+                            "Unable to verify phone number. Please check the number and try again."
+                        )
                     )
         return user_alert

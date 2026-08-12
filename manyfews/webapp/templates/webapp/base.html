@@ -1,5 +1,7 @@
 {% load static %}
 {% load leaflet_tags %}
+{% load i18n %}
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,23 +18,23 @@
     <div class="header container-fluid row justify-content-between">
         <a href="{% url 'index' %}" class="col-8 align-self-center title-block">
             <h1 class="row">ManyFEWS</h1>
-            <h3 class="row">Flood warnings for Majalaya</h3>
+            <h3 class="row">{% trans "Flood warnings for Majalaya" %}</h3>
         </a>
         <div class="col-4 align-self-center right">
-          <a href="{% url 'river_flows' %}" class="btn btn-primary">River Flows</a>
+          <a href="{% url 'river_flows' %}" class="btn btn-primary">{% trans "River Flows" %}</a>
           {% if user.is_authenticated %}
-            <a href="{% url 'alerts' %}" class="btn btn-primary">Alerts</a>
-            <a href="{% url 'logout' %}" class="btn btn-primary">Log Out</a>
+            <a href="{% url 'alerts' %}" class="btn btn-primary">{% trans "Alerts" %}</a>
+            <a href="{% url 'logout' %}" class="btn btn-primary">{% trans "Log Out" %}</a>
           {% else %}
-            <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
-            <a href="{% url 'signup' %}" class="btn btn-primary">Sign Up</a>
+            <a href="{% url 'login' %}" class="btn btn-primary">{% trans "Login" %}</a>
+            <a href="{% url 'signup' %}" class="btn btn-primary">{% trans "Sign Up" %}</a>
           {% endif %}
         </div>
     </div>
     {% block content %}
     {% endblock %}
     <div class="footer container-fluid">
-      <a class="col" data-bs-toggle="modal" data-bs-target="#privacy-modal">Privacy Policy</a>
+      <a class="col" data-bs-toggle="modal" data-bs-target="#privacy-modal">{% trans "Privacy Policy" %}</a>
     </div>
 
     <!-- Privacy policy modal -->
@@ -40,16 +42,17 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">ManyFEWS Privacy Policy</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <h5 class="modal-title">{% trans "ManyFEWS Privacy Policy" %}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
           </div>
           <div class="modal-body">
             <iframe src="{% static 'privacy_policy.pdf' %}" width="100%" height="500px"></iframe>
           </div>
           <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
           </div>
         </div>
       </div>
     </div>
 </body>
+</html>

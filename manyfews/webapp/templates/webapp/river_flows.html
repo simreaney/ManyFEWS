@@ -1,29 +1,32 @@
 {% extends 'webapp/base.html' %}
+{% load i18n %}
 
 {% block content %}
     <div class="container-fluid river-flows">
       <div class="header row justify-content-between align-items-center">
         <div class="col-auto d-flex align-items-center">
-          <a href="{% url 'index' %}" class="btn btn-secondary me-3">&larr; Back to map</a>
-          <h3 class="mb-0">River Flow Estimates</h3>
+          <a href="{% url 'index' %}" class="btn btn-secondary me-3">&larr; {% trans "Back to map" %}</a>
+          <h3 class="mb-0">{% trans "River Flow Estimates" %}</h3>
         </div>
-        <div class="col-auto btn-group" role="group" aria-label="River flow display mode" id="river-flow-mode">
+        <div class="col-auto btn-group" role="group" aria-label="{% trans 'River flow display mode' %}" id="river-flow-mode">
           <input type="radio" class="btn-check" name="river-flow-mode" id="mode-percentiles" value="percentiles" checked>
-          <label class="btn btn-outline-primary" for="mode-percentiles">10th&ndash;90th percentile</label>
+          <label class="btn btn-outline-primary" for="mode-percentiles">10th&ndash;90th {% trans "percentile" %}</label>
           <input type="radio" class="btn-check" name="river-flow-mode" id="mode-all" value="all">
-          <label class="btn btn-outline-primary" for="mode-all">Every prediction</label>
+          <label class="btn btn-outline-primary" for="mode-all">{% trans "Every prediction" %}</label>
         </div>
       </div>
 
       {% if forecast_data %}
         <div class="river-flow-chart" id="river-flow-chart"></div>
       {% else %}
-        <p>No river flow predictions are available yet.</p>
+        <p>{% trans "No river flow predictions are available yet." %}</p>
       {% endif %}
     </div>
 
     {{ forecast_data|json_script:"river-flow-data" }}
     <script type="text/javascript">
-      window.initialiseRiverFlowChart("river-flow-chart", "river-flow-data", "river-flow-mode");
+      window.initialiseRiverFlowChart("river-flow-chart", "river-flow-data", "river-flow-mode", {
+        flowAxis: "{% trans 'River flow (m³/s)' %}"
+      });
     </script>
 {% endblock content %}

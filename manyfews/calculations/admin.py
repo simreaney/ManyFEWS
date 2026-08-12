@@ -1,5 +1,8 @@
 from django.contrib.gis import admin
 from django.forms import ModelForm, FileField
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.urls import reverse
 from leaflet.admin import LeafletGeoAdmin
 
 from .models import (
@@ -7,7 +10,9 @@ from .models import (
     RiverChannel,
     RiverFlowPrediction,
     FloodModelParameters,
+    TestModeSettings,
 )
+from .tasks import recalculate_flood_flows
 
 
 @admin.register(FloodModelParameters)
@@ -60,3 +65,35 @@ class ModelVersionAdmin(admin.ModelAdmin):
 @admin.register(RiverChannel)
 class RiverChannelAdmin(LeafletGeoAdmin):
     display_raw = True
+
+
+@admin.register(TestModeSettings)
+class TestModeSettingsAdmin(admin.ModelAdmin):
+    fields = ("enabled",)
+
+    def has_add_permission(self, request):
+        # Singleton: never allow creating a second row via the admin.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        # Singleton: skip straight to the (only) row's change page, creating
+        # it on first visit.
+        obj, _ = TestModeSettings.objects.get_or_create(pk=1)
+        return redirect(
+            reverse("admin:calculations_testmodesettings_change", args=[obj.pk])
+        )
+
+    def response_change(self, request, obj):
+        if "_recalculate_flood_flows" in request.POST:
+            recalculate_flood_flows.delay()
+            self.message_user(
+                request,
+                "Test mode setting saved. Recalculating flood flows in the "
+                "background - this can take a while for a large model; check "
+                "the Celery worker logs or Task results for progress.",
+            )
+            return HttpResponseRedirect(request.path)
+        return super().response_change(request, obj)

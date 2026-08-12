@@ -1,0 +1,80 @@
+name: Static site
+
+# The site fetches its forecast live from Open-Meteo in the browser, so this
+# workflow is not a scheduled data refresh - it only runs when the model data,
+# the site itself, or the packing script changes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'Data/**'
+      - 'core/**'
+      - '.github/workflows/static-site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'core/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install core package
+        run: pip install -e './core[test]'
+
+      - name: Python tests
+        run: pytest -q
+        working-directory: core
+
+      # Guards against the JS and Python paths silently diverging: both are
+      # checked against the same MATLAB reference outputs in Data/.
+      - name: JavaScript parity against the MATLAB reference
+        run: node site/test/parity.test.mjs
+
+      - name: Rebuild the packed model data
+        run: python core/scripts/build_static_data.py
+
+      - name: Fail if the committed data is stale
+        run: |
+          if ! git diff --quiet -- site/data; then
+            echo "::error::site/data is out of date. Run core/scripts/build_static_data.py and commit the result."
+            git diff --stat -- site/data
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

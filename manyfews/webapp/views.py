@@ -10,6 +10,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template import loader
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -18,6 +19,7 @@ import numpy as np
 from calculations.models import (
     AggregatedDepthPrediction,
     DepthPrediction,
+    NoaaForecast,
     PercentageFloodRisk,
     RiverFlowCalculationOutput,
     RiverFlowPrediction,
@@ -37,6 +39,13 @@ def index(request):
 
     # Prepare risk data for the home page
     today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Latest Open-Meteo ensemble run available, used for the median rainfall
+    # forecast boxes below.
+    latest_issue_date = NoaaForecast.objects.aggregate(Max("issue_date"))[
+        "issue_date__max"
+    ]
+
     daily_risks = []
     for i in range(10):
         six_hour_risks = []
@@ -56,11 +65,31 @@ def index(request):
                 {"hour": j * 6, "risk": risk, "percentage_risk": risk * 100}
             )
 
+        # Median rainfall forecast for the day: sum each ensemble member's
+        # forecast precipitation across the day, then take the median across
+        # members so no single wet/dry outlier skews the headline figure.
+        rainfall_by_member = defaultdict(float)
+        if latest_issue_date is not None:
+            readings = NoaaForecast.objects.filter(
+                issue_date=latest_issue_date,
+                date__gte=date,
+                date__lt=date + timedelta(days=1),
+            ).values_list("ensemble_member", "precipitation")
+            for ensemble_member, precipitation in readings:
+                rainfall_by_member[ensemble_member] += precipitation
+
+        if rainfall_by_member:
+            median_rainfall = float(np.median(list(rainfall_by_member.values())))
+        else:
+            median_rainfall = 0
+
         daily_risks.append(
             {
                 "day_number": i,
                 "date": date,
                 "risks": six_hour_risks,
+                "median_rainfall": median_rainfall,
+                "rainfall_ratio": min(median_rainfall / settings.MAX_DAILY_RAINFALL, 1),
             }
         )
 
@@ -194,7 +223,7 @@ def alerts(request, action=None, id=None):
                 messages.add_message(
                     request,
                     messages.SUCCESS,
-                    "Alert added. Please check your messages to verify it.",
+                    _("Alert added. Please check your messages to verify it."),
                 )
                 # Redirect to /alerts if successful
                 return redirect("alerts")
@@ -231,7 +260,9 @@ def alerts(request, action=None, id=None):
     ]
 
     if form.errors.get("location"):
-        form.errors["location"][0] += " Use the toolbox to select an area on the map."
+        form.errors["location"][0] += " " + _(
+            "Use the toolbox to select an area on the map."
+        )
 
     template = loader.get_template("webapp/alerts.html")
     return HttpResponse(
@@ -261,13 +292,13 @@ def verify_alert(request):
                 user_alert.verified = True
                 user_alert.save()
                 messages.add_message(
-                    request, messages.SUCCESS, "Verification succeeded."
+                    request, messages.SUCCESS, _("Verification succeeded.")
                 )
             else:
                 messages.add_message(
                     request,
                     messages.ERROR,
-                    "Verification failed. Please try again.",
+                    _("Verification failed. Please try again."),
                     extra_tags="danger",
                 )
     except Exception as e:
@@ -277,7 +308,7 @@ def verify_alert(request):
         messages.add_message(
             request,
             messages.ERROR,
-            "Verification failed. Please try again.",
+            _("Verification failed. Please try again."),
             extra_tags="danger",
         )
 
@@ -297,13 +328,21 @@ def resend_verification(request, id):
             messages.add_message(
                 request,
                 messages.INFO,
-                f"We have sent a verification code to {str(user_alert.phone_number.phone_number)}. Use the 'Verify' button to enter the code to verify your alert.",
+                _(
+                    "We have sent a verification code to %(phone_number)s. Use the "
+                    "'Verify' button to enter the code to verify your alert."
+                )
+                % {"phone_number": str(user_alert.phone_number.phone_number)},
             )
         else:
             messages.add_message(
                 request,
                 messages.ERROR,
-                f"Unable to send verification code to {str(user_alert.phone_number.phone_number)}. Please check the number and try again.",
+                _(
+                    "Unable to send verification code to %(phone_number)s. Please "
+                    "check the number and try again."
+                )
+                % {"phone_number": str(user_alert.phone_number.phone_number)},
                 extra_tags="danger",
             )
     except Exception as e:
@@ -313,7 +352,11 @@ def resend_verification(request, id):
         messages.add_message(
             request,
             messages.ERROR,
-            f"Unable to send verification code to {str(user_alert.phone_number.phone_number)}. Please check the number and try again.",
+            _(
+                "Unable to send verification code to %(phone_number)s. Please "
+                "check the number and try again."
+            )
+            % {"phone_number": str(user_alert.phone_number.phone_number)},
             extra_tags="danger",
         )
 

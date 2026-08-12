@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.forms import BooleanField, EmailField
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
@@ -12,7 +14,11 @@ class EmailUserCreationForm(UserCreationForm):
 
     email = EmailField(required=True)
     agree_privacy = BooleanField(
-        label='I have agreed to the <a href="" data-bs-toggle="modal" data-bs-target="#privacy-modal">Privacy Policy</a>',
+        label=mark_safe(
+            _(
+                'I have agreed to the <a href="" data-bs-toggle="modal" data-bs-target="#privacy-modal">Privacy Policy</a>'
+            )
+        ),
         required=True,
     )
 
@@ -24,7 +30,7 @@ class EmailUserCreationForm(UserCreationForm):
         # Ensure email address doesn't already exist
         email_address = self.cleaned_data["email"]
         if User.objects.filter(email=email_address).count():
-            raise ValidationError("A user with this email address already exists.")
+            raise ValidationError(_("A user with this email address already exists."))
 
         return email_address
 

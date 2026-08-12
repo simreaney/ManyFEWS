@@ -9,6 +9,7 @@ from .models import (
     RiverFlowCalculationOutput,
     RiverFlowPrediction,
     AggregatedWeatherReading,
+    TestModeSettings,
 )
 
 from celery.utils.log import get_task_logger
@@ -480,6 +481,37 @@ def prepareInitialCondition(predictionDate, location):
     return intialConditionData
 
 
+def _testStormOverrides(weatherData, startTime):
+    """
+    If test mode is enabled (TestModeSettings.is_enabled()), return a dict
+    mapping the id of every forecast row that falls on
+    (startTime + TestModeSettings.STORM_DAYS_AHEAD) to a precipitation
+    value such that the day's rows sum to TestModeSettings.STORM_TOTAL_MM.
+
+    :param weatherData: an already-evaluated list of NoaaForecast rows.
+    :param startTime: the forecast run's issue date (i.e. "today"), used as
+        the reference point for "STORM_DAYS_AHEAD days ahead".
+    :return: dict of {row id: overridden precipitation (mm)}, empty if test
+        mode is off or no rows fall on the target day.
+    """
+    if not TestModeSettings.is_enabled():
+        return {}
+
+    stormDayStart = (
+        startTime + timedelta(days=TestModeSettings.STORM_DAYS_AHEAD)
+    ).replace(hour=0, minute=0, second=0, microsecond=0)
+    stormDayEnd = stormDayStart + timedelta(days=1)
+
+    stormRows = [
+        data for data in weatherData if stormDayStart <= data.date < stormDayEnd
+    ]
+    if not stormRows:
+        return {}
+
+    mmPerBucket = TestModeSettings.STORM_TOTAL_MM / len(stormRows)
+    return {data.id: mmPerBucket for data in stormRows}
+
+
 def prepareWeatherForecastData(
     predictionDate, location, dataSource="forecast", backDays=0, ensemble_member=None
 ):
@@ -517,6 +549,9 @@ def prepareWeatherForecastData(
             weatherData = weatherData.filter(ensemble_member=ensemble_member)
         weatherData = weatherData.order_by("date")
 
+        weatherData = list(weatherData)
+        stormOverrides = _testStormOverrides(weatherData, startTime)
+
     elif dataSource == "historical":
         endTime = startTime + timedelta(days=backDays)
         weatherData = (
@@ -524,6 +559,7 @@ def prepareWeatherForecastData(
             .filter(location=location)
             .order_by("date")
         )
+        stormOverrides = {}
 
     RHList = []
     minTemperatureList = []
@@ -538,7 +574,7 @@ def prepareWeatherForecastData(
         maxTemperatureList.append(data.max_temperature)
         uWindList.append(data.wind_u)
         vWindList.append(data.wind_v)
-        precipitationList.append(data.precipitation)
+        precipitationList.append(stormOverrides.get(data.id, data.precipitation))
 
     dataList = list(
         zip(

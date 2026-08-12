@@ -4,6 +4,11 @@ import {interpolateYlGnBu} from 'd3-scale-chromatic';
 var floodOverlayLayerGroup = L.layerGroup();
 var currentDay = 0;
 var currentHour = 0;
+var tooltipLabels = {
+  depth: 'Depth',
+  lowerCentile: 'Lower centile',
+  upperCentile: 'Upper centile',
+};
 
 function getFloodOverlays(map, day, hour) {
   currentDay = day;
@@ -28,8 +33,8 @@ function getFloodOverlays(map, day, hour) {
           }
         );
         layer.bindTooltip(
-          "Depth: " + i.depth.toFixed(2) + "m<br>Lower centile: " + i.lower_centile.toFixed(2) +
-              "m<br>Upper centile: " + i.upper_centile.toFixed(2) + "m"
+          tooltipLabels.depth + ": " + i.depth.toFixed(2) + "m<br>" + tooltipLabels.lowerCentile + ": " + i.lower_centile.toFixed(2) +
+              "m<br>" + tooltipLabels.upperCentile + ": " + i.upper_centile.toFixed(2) + "m"
         );
         floodOverlayLayerGroup.addLayer(layer);
       });
@@ -37,7 +42,10 @@ function getFloodOverlays(map, day, hour) {
     });
 }
 
-export function initialiseDepthMap() {
+export function initialiseDepthMap(labels) {
+  if (labels) {
+    tooltipLabels = labels;
+  }
   window.addEventListener("map:init", function (e) {
     var detail = e.detail;
     getFloodOverlays(detail.map, currentDay, currentHour);

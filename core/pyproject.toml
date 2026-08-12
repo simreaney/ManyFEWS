@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manyfews-core"
+version = "0.1.0"
+description = "Django-free core of the ManyFEWS flood forecasting pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+
+# Deliberately minimal. The whole point of this package is that the science
+# runs without PostGIS, GDAL, GeoDjango, celery or numba. tests/test_no_heavy_deps.py
+# enforces that none of those ever sneak back in.
+dependencies = [
+    "numpy>=1.23",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.6"]
+map = ["folium>=0.14", "pillow>=9"]
+test = ["pytest>=7"]
+all = ["matplotlib>=3.6", "folium>=0.14", "pillow>=9", "pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["manyfews_core*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not network'"
+markers = [
+    "network: hits the live Open-Meteo API (deselected by default)",
+    "slow: end-to-end runs taking more than a few seconds",
+]

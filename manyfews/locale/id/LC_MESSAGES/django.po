@@ -1,0 +1,212 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ManyFEWS\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-11 00:00+0000\n"
+"PO-Revision-Date: 2026-08-11 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Indonesian\n"
+"Language: id\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Flood warnings for Majalaya"
+msgstr "Peringatan banjir untuk Majalaya"
+
+msgid "River Flows"
+msgstr "Aliran Sungai"
+
+msgid "Alerts"
+msgstr "Peringatan"
+
+msgid "Log Out"
+msgstr "Keluar"
+
+msgid "Login"
+msgstr "Masuk"
+
+msgid "Sign Up"
+msgstr "Daftar"
+
+msgid "Privacy Policy"
+msgstr "Kebijakan Privasi"
+
+msgid "ManyFEWS Privacy Policy"
+msgstr "Kebijakan Privasi ManyFEWS"
+
+msgid "Close"
+msgstr "Tutup"
+
+msgid "Median rainfall forecast"
+msgstr "Perkiraan curah hujan median"
+
+msgid "Flood risk"
+msgstr "Risiko banjir"
+
+msgid "Depth"
+msgstr "Kedalaman"
+
+msgid "Lower centile"
+msgstr "Sentil bawah"
+
+msgid "Upper centile"
+msgstr "Sentil atas"
+
+msgid "Back to map"
+msgstr "Kembali ke peta"
+
+msgid "River Flow Estimates"
+msgstr "Perkiraan Aliran Sungai"
+
+msgid "River flow display mode"
+msgstr "Mode tampilan aliran sungai"
+
+msgid "percentile"
+msgstr "persentil"
+
+msgid "Every prediction"
+msgstr "Semua prediksi"
+
+msgid "No river flow predictions are available yet."
+msgstr "Belum ada prediksi aliran sungai yang tersedia."
+
+msgid "River flow (m³/s)"
+msgstr "Aliran sungai (m³/dtk)"
+
+msgid "Your Alerts"
+msgstr "Peringatan Anda"
+
+msgid "Alert Type"
+msgstr "Jenis Peringatan"
+
+msgid "Phone Number"
+msgstr "Nomor Telepon"
+
+msgid "Verified"
+msgstr "Terverifikasi"
+
+msgid "Yes"
+msgstr "Ya"
+
+msgid "Verify"
+msgstr "Verifikasi"
+
+msgid "View/Edit"
+msgstr "Lihat/Edit"
+
+msgid "Delete"
+msgstr "Hapus"
+
+msgid "You have no alerts set up. Click \"Add New\" to create one."
+msgstr "Anda belum mengatur peringatan apa pun. Klik \"Tambah Baru\" untuk membuatnya."
+
+msgid "Add new"
+msgstr "Tambah baru"
+
+msgid "Save alert"
+msgstr "Simpan peringatan"
+
+msgid "Cancel"
+msgstr "Batal"
+
+msgid "Delete alert?"
+msgstr "Hapus peringatan?"
+
+msgid "Are you sure you want to delete this alert?"
+msgstr "Apakah Anda yakin ingin menghapus peringatan ini?"
+
+msgid "Verify Phone Number"
+msgstr "Verifikasi Nomor Telepon"
+
+msgid "Verification code has been sent to"
+msgstr "Kode verifikasi telah dikirim ke"
+
+msgid "Enter it below."
+msgstr "Masukkan di bawah ini."
+
+msgid "Resend Code"
+msgstr "Kirim Ulang Kode"
+
+msgid "Log In"
+msgstr "Masuk"
+
+msgid "Reset password"
+msgstr "Atur ulang kata sandi"
+
+msgid "Sign up"
+msgstr "Daftar"
+
+msgid "Forgot your password?"
+msgstr "Lupa kata sandi Anda?"
+
+msgid "Enter your email address below, and we'll email instructions for setting a new one."
+msgstr "Masukkan alamat email Anda di bawah ini, dan kami akan mengirimkan instruksi untuk membuat kata sandi baru melalui email."
+
+msgid "Send password reset"
+msgstr "Kirim atur ulang kata sandi"
+
+msgid "Password reset sent"
+msgstr "Permintaan atur ulang kata sandi terkirim"
+
+msgid "We’ve emailed you instructions for setting your password, if an account exists with the email you entered. You should receive them shortly."
+msgstr "Kami telah mengirimkan instruksi melalui email untuk mengatur kata sandi Anda, jika akun dengan email yang Anda masukkan ada. Anda akan segera menerimanya."
+
+msgid "If you don’t receive an email, please make sure you’ve entered the address you registered with, and check your spam folder."
+msgstr "Jika Anda tidak menerima email, pastikan Anda telah memasukkan alamat yang Anda gunakan saat mendaftar, dan periksa folder spam Anda."
+
+msgid "Enter new password"
+msgstr "Masukkan kata sandi baru"
+
+msgid "Change password"
+msgstr "Ubah kata sandi"
+
+msgid "The password reset link was invalid, possibly because it has already been used."
+msgstr "Tautan atur ulang kata sandi tidak valid, mungkin karena sudah digunakan."
+
+msgid "Please"
+msgstr "Silakan"
+
+msgid "request a new password reset"
+msgstr "minta atur ulang kata sandi baru"
+
+msgid "Password reset complete"
+msgstr "Atur ulang kata sandi selesai"
+
+msgid "Your new password has been set. You can log in now on the"
+msgstr "Kata sandi baru Anda telah diatur. Anda sekarang dapat masuk di"
+
+msgid "log in page"
+msgstr "halaman masuk"
+
+msgid "I have agreed to the <a href=\"\" data-bs-toggle=\"modal\" data-bs-target=\"#privacy-modal\">Privacy Policy</a>"
+msgstr "Saya telah menyetujui <a href=\"\" data-bs-toggle=\"modal\" data-bs-target=\"#privacy-modal\">Kebijakan Privasi</a>"
+
+msgid "A user with this email address already exists."
+msgstr "Pengguna dengan alamat email ini sudah ada."
+
+msgid "You must provide a new phone number or choose an existing one."
+msgstr "Anda harus memberikan nomor telepon baru atau memilih salah satu yang sudah ada."
+
+msgid "Unable to verify phone number. Please check the number and try again."
+msgstr "Tidak dapat memverifikasi nomor telepon. Periksa nomornya dan coba lagi."
+
+msgid "Alert added. Please check your messages to verify it."
+msgstr "Peringatan ditambahkan. Periksa pesan Anda untuk memverifikasinya."
+
+msgid "Use the toolbox to select an area on the map."
+msgstr "Gunakan kotak alat untuk memilih area pada peta."
+
+msgid "Verification succeeded."
+msgstr "Verifikasi berhasil."
+
+msgid "Verification failed. Please try again."
+msgstr "Verifikasi gagal. Silakan coba lagi."
+
+msgid "We have sent a verification code to %(phone_number)s. Use the 'Verify' button to enter the code to verify your alert."
+msgstr "Kami telah mengirimkan kode verifikasi ke %(phone_number)s. Gunakan tombol 'Verifikasi' untuk memasukkan kode dan memverifikasi peringatan Anda."
+
+msgid "Unable to send verification code to %(phone_number)s. Please check the number and try again."
+msgstr "Tidak dapat mengirim kode verifikasi ke %(phone_number)s. Periksa nomornya dan coba lagi."
+

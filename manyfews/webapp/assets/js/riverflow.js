@@ -12,7 +12,7 @@ function parseForecastData(raw) {
   });
 }
 
-function renderChart(container, data, mode) {
+function renderChart(container, data, mode, labels) {
   container.innerHTML = '';
 
   var margin = { top: 20, right: 30, bottom: 40, left: 60 };
@@ -62,7 +62,7 @@ function renderChart(container, data, mode) {
     .attr('x', -height / 2)
     .attr('y', -45)
     .attr('text-anchor', 'middle')
-    .text('River flow (m³/s)');
+    .text(labels.flowAxis);
 
   if (mode === 'all') {
     var numLines = max(data, function (d) { return d.predictions.length; });
@@ -107,7 +107,7 @@ function renderChart(container, data, mode) {
   }
 }
 
-export function initialiseRiverFlowChart(chartElementId, dataElementId, modeGroupId) {
+export function initialiseRiverFlowChart(chartElementId, dataElementId, modeGroupId, labels) {
   var dataElement = document.getElementById(dataElementId);
   var container = document.getElementById(chartElementId);
   var modeGroup = document.getElementById(modeGroupId);
@@ -121,13 +121,15 @@ export function initialiseRiverFlowChart(chartElementId, dataElementId, modeGrou
     return;
   }
 
+  var chartLabels = Object.assign({ flowAxis: 'River flow (m³/s)' }, labels);
+
   function currentMode() {
     var checked = modeGroup.querySelector('input[name="river-flow-mode"]:checked');
     return checked ? checked.value : 'percentiles';
   }
 
   function draw() {
-    renderChart(container, data, currentMode());
+    renderChart(container, data, currentMode(), chartLabels);
   }
 
   modeGroup.addEventListener('change', draw);
