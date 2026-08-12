@@ -121,7 +121,10 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# NOTE: the standard Python .gitignore template ignores /site here, as mkdocs
+# builds into it. This project does not use mkdocs, and /site is now the static
+# flood-map prototype, so the rule is removed rather than silently swallowing it.
+# Reinstate it (as /site/ alongside an mkdocs.yml) if mkdocs is ever adopted.
 
 # mypy
 .mypy_cache/
