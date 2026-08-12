@@ -6,10 +6,13 @@ GitHub Pages, with a working prototype in [`site/`](../site/).
 **Verdict: yes, and it can be genuinely live rather than a pre-baked snapshot.**
 The prototype fetches real forecasts, runs the full hydrological chain and the
 flood emulator in the browser, and renders the inundation map — with no server,
-no database, no API key and no scheduled job. First load transfers 3.7 MB;
-after that a flood map redraws in about 45 ms.
+no database, no API key and no scheduled job.
 
-Every number below was measured against the prototype, not estimated.
+**It is deployed: <https://simreaney.github.io/ManyFEWS/>**
+
+Driven with headless Chromium against that live URL: **2.2 s to ready** from a
+cold cache, 3.7 MB transferred, **37 ms** per flood-map redraw, no console
+errors. Every number below was measured, not estimated.
 
 ---
 
@@ -64,8 +67,9 @@ Chromium, cold cache, local server. The compute figures are the ones that matter
 | Forecast: 64 steps × 100 sets × 10 members | 10.7 ms |
 | Flood depth at a single flow (302,748 cells) | 3 ms |
 | Flood depth percentile across 1,000 pooled samples | 188 ms |
-| Full page ready, cold | **1.9 s** |
-| Flow-slider redraw (compute + paint + overlay) | **45 ms** |
+| Full page ready, cold (local server) | 1.9 s |
+| Full page ready, cold (live, GitHub Pages) | **2.2 s** |
+| Flow-slider redraw (compute + paint + overlay) | **37 ms** |
 
 The hydrology is essentially free — 64,000 model steps in 11 ms. The only
 non-trivial cost is the percentile path, and that is entirely the ~9,500
@@ -96,6 +100,10 @@ browser with `DecompressionStream`. GitHub Pages will not gzip
 `application/octet-stream` on the fly, and 6.4 MB versus 3.6 MB is worth one API
 call. This needs Chrome 80+, Firefox 113+ or Safari 16.4+; the prototype says so
 explicitly rather than failing obscurely.
+
+Confirmed against the live deployment: Pages serves `grid.bin.gz` as
+`application/gzip` at exactly 3,569,699 bytes — it does not re-encode or
+double-compress, so the browser gets the stream the build script produced.
 
 ### Encodings considered and rejected
 

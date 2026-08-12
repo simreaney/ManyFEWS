@@ -92,5 +92,7 @@ Additive. Nothing in `manyfews/` is modified, so there is no regression risk to
 the running system. Refactoring `calculations/` to import from here would remove
 a duplicate copy of the numerics and is a sensible follow-up, but is out of scope.
 
-The same package backs the static site — see
+The same package backs the static site, which is deployed at
+**<https://simreaney.github.io/ManyFEWS/>** — the full chain running client-side
+with no server at all. See
 [`docs/STATIC_SITE_FEASIBILITY.md`](../docs/STATIC_SITE_FEASIBILITY.md).
