@@ -171,6 +171,14 @@ coverage.xml
 dbexport.pgsql
 k8s-deploy.yml
 
+# The Colab notebooks clone this repository when they are not already inside a
+# checkout; running one from the wrong working directory leaves a ~40 MB nested
+# clone behind. They clone into manyfews-repo/ rather than ManyFEWS/ on purpose:
+# core.ignorecase is true on macOS and Windows, so a "ManyFEWS/" pattern here
+# would also match the manyfews/ Django app and silently ignore every new file
+# added to it.
+manyfews-repo/
+
 # manyfews_core derived caches (rebuilt automatically from Data/*.csv)
 Data/*.npy
 core/**/__pycache__/
