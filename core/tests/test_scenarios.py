@@ -40,7 +40,7 @@ def test_storm_leaves_other_days_untouched(synthetic_weather, issue_time):
     storm = StormConfig(enabled=True, total_mm=200.0, days_ahead=2)
     out = inject_storm(synthetic_weather, issue_time, storm)
 
-    before = np.r_[0:8, 12:len(synthetic_weather)]
+    before = np.r_[0:8, 12 : len(synthetic_weather)]
     assert_allclose(
         out.data[before, WeatherSeries.PRECIP],
         synthetic_weather.data[before, WeatherSeries.PRECIP],
@@ -49,7 +49,9 @@ def test_storm_leaves_other_days_untouched(synthetic_weather, issue_time):
 
 def test_storm_returns_a_copy(synthetic_weather, issue_time):
     original = synthetic_weather.data.copy()
-    inject_storm(synthetic_weather, issue_time, StormConfig(enabled=True, total_mm=200.0))
+    inject_storm(
+        synthetic_weather, issue_time, StormConfig(enabled=True, total_mm=200.0)
+    )
     assert_allclose(synthetic_weather.data, original)
 
 

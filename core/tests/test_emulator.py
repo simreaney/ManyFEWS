@@ -25,7 +25,10 @@ def test_zero_below_threshold(emulator):
     """A cell contributes nothing until flow reaches its own minQ."""
     below = emulator.min_q - 1.0
     depth = np.array(
-        [emulator.depth_at(np.array([q]), np.array([i]))[0, 0] for i, q in enumerate(below[:200])]
+        [
+            emulator.depth_at(np.array([q]), np.array([i]))[0, 0]
+            for i, q in enumerate(below[:200])
+        ]
     )
     assert np.all(depth == 0.0)
 
@@ -93,7 +96,9 @@ def test_percentiles_match_numpy_convention(emulator):
     depth = emulator.depth_at(flows, cells)
     expected = np.median(depth, axis=1)
 
-    got = emulator.depth_percentiles(flows, percentiles=(50.0,), method="brute")[cells, 0]
+    got = emulator.depth_percentiles(flows, percentiles=(50.0,), method="brute")[
+        cells, 0
+    ]
     assert_allclose(got, expected, atol=1e-12)
 
 

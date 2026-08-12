@@ -53,9 +53,9 @@ def inject_storm(
     if not storm.enabled:
         return series
 
-    start = (issue_time.astimezone(timezone.utc) + timedelta(days=storm.days_ahead)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    start = (
+        issue_time.astimezone(timezone.utc) + timedelta(days=storm.days_ahead)
+    ).replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
 
     lo = np.datetime64(start.replace(tzinfo=None), "s")

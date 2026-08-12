@@ -38,9 +38,7 @@ class UserAlertForm(ModelForm):
             new_number = self.cleaned_data["new_phone_number"]
             if not new_number:
                 raise ValidationError(
-                    _(
-                        "You must provide a new phone number or choose an existing one."
-                    )
+                    _("You must provide a new phone number or choose an existing one.")
                 )
             return new_number
 

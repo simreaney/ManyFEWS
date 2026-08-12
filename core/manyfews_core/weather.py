@@ -433,10 +433,14 @@ def fetch_forecast(
         suffixes = suffixes[: cfg.max_members]
 
     series = [
-        buckets_to_series(bucket_to_6h(hourly, s), suffix_label(s)).truncate_to_whole_days()
+        buckets_to_series(
+            bucket_to_6h(hourly, s), suffix_label(s)
+        ).truncate_to_whole_days()
         for s in suffixes
     ]
-    logger.info("Parsed %d ensemble member(s), %d buckets each", len(series), len(series[0]))
+    logger.info(
+        "Parsed %d ensemble member(s), %d buckets each", len(series), len(series[0])
+    )
     return series
 
 

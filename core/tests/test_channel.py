@@ -5,7 +5,11 @@ import json
 import numpy as np
 import pytest
 
-from manyfews_core.channel import cached_channel_mask, channel_mask, load_channel_polygons
+from manyfews_core.channel import (
+    cached_channel_mask,
+    channel_mask,
+    load_channel_polygons,
+)
 from manyfews_core.data import CHANNEL_GEOJSON, data_path
 
 N_PARTS = 869

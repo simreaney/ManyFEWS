@@ -205,13 +205,9 @@ class FloodEmulator:
             mq = self.min_q[sl][:, None]
             # Per-cell grid from that cell's own threshold up to the cap.
             q = mq + frac * (self.q_cap - mq)
-            depth = (
-                self.beta0[sl][:, None]
-                + q
-                * (
-                    self.beta1[sl][:, None]
-                    + q * (self.beta2[sl][:, None] + q * self.beta3[sl][:, None])
-                )
+            depth = self.beta0[sl][:, None] + q * (
+                self.beta1[sl][:, None]
+                + q * (self.beta2[sl][:, None] + q * self.beta3[sl][:, None])
             )
             np.maximum(depth, 0.0, out=depth)
             out[sl] = (np.diff(depth, axis=1) >= _MONOTONE_TOL).all(axis=1)
@@ -230,7 +226,9 @@ class FloodEmulator:
         sqrt_disc = np.sqrt(np.where(real, disc, 0.0))
         with np.errstate(divide="ignore", invalid="ignore"):
             for root in ((-b + sqrt_disc) / (2 * a), (-b - sqrt_disc) / (2 * a)):
-                inside = real & np.isfinite(root) & (root > self.min_q) & (root < self.q_cap)
+                inside = (
+                    real & np.isfinite(root) & (root > self.min_q) & (root < self.q_cap)
+                )
                 ok &= ~inside
         return ok
 
@@ -320,9 +318,7 @@ class FloodEmulator:
         channel_mask: np.ndarray | None = None,
     ) -> "DepthField":
         """Compute a :class:`DepthField` for one pooled flow population."""
-        depth = self.depth_percentiles(
-            flows, cfg.percentiles, method=cfg.method
-        )
+        depth = self.depth_percentiles(flows, cfg.percentiles, method=cfg.method)
         if channel_mask is not None and cfg.mask_channel:
             depth = depth.copy()
             depth[channel_mask] = np.nan

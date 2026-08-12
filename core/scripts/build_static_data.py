@@ -71,18 +71,26 @@ def build(out_dir: Path, q_cap: float) -> None:
     n_col = int(round((lng_max - lng_min) / size)) + 1
     n_row = int(round((lat_max - lat_min) / size)) + 1
 
-    col = np.clip(np.round((emulator.lng - lng_min) / size).astype(np.int64), 0, n_col - 1)
-    row = np.clip(np.round((lat_max - emulator.lat) / size).astype(np.int64), 0, n_row - 1)
+    col = np.clip(
+        np.round((emulator.lng - lng_min) / size).astype(np.int64), 0, n_col - 1
+    )
+    row = np.clip(
+        np.round((lat_max - emulator.lat) / size).astype(np.int64), 0, n_row - 1
+    )
     position = (row * n_col + col).astype(np.uint32)
 
     collisions = n - np.unique(position).size
     print(f"grid {n_row} x {n_col} = {n_row * n_col:,} positions")
-    print(f"cells {n:,} ({100 * n / (n_row * n_col):.1f}% fill), {collisions} collision(s)")
+    print(
+        f"cells {n:,} ({100 * n / (n_row * n_col):.1f}% fill), {collisions} collision(s)"
+    )
 
     # --- minQ as a small lookup -------------------------------------------
     levels = np.unique(emulator.min_q)
     if levels.size > 256:
-        raise ValueError(f"minQ has {levels.size} distinct values; uint8 coding assumes <= 256")
+        raise ValueError(
+            f"minQ has {levels.size} distinct values; uint8 coding assumes <= 256"
+        )
     min_q_code = np.searchsorted(levels, emulator.min_q).astype(np.uint8)
     print(f"minQ levels: {[float(v) for v in levels]}")
 
@@ -100,7 +108,9 @@ def build(out_dir: Path, q_cap: float) -> None:
     _write_gz(out_dir / "grid.bin.gz", payload)
 
     mask = cached_channel_mask(emulator)
-    _write_gz(out_dir / "channel.bin.gz", np.packbits(mask, bitorder="little").tobytes())
+    _write_gz(
+        out_dir / "channel.bin.gz", np.packbits(mask, bitorder="little").tobytes()
+    )
     print(f"channel mask: {int(mask.sum()):,} cells ({100 * mask.mean():.2f}%)")
 
     # Ship the monotonicity mask rather than recomputing it in the browser: the
@@ -159,16 +169,59 @@ def build(out_dir: Path, q_cap: float) -> None:
 
 
 def _write_gz(path: Path, payload: bytes) -> None:
-    # mtime=0 keeps the output byte-stable, so rebuilding unchanged data does not
-    # churn the repository.
+    # mtime=0 keeps the header stable so an unchanged rebuild does not churn the
+    # repository. Note this makes the output reproducible on one machine, but NOT
+    # across machines: different zlib builds emit different deflate streams for
+    # identical input. Staleness is therefore checked on the decompressed payload
+    # (see --check), never on the compressed bytes.
     compressed = gzip.compress(payload, compresslevel=9, mtime=0)
     path.write_bytes(compressed)
-    print(f"{path.name:<18} {len(payload) / 1e6:6.2f} MB raw -> {len(compressed) / 1e6:5.2f} MB gzip")
+    print(
+        f"{path.name:<18} {len(payload) / 1e6:6.2f} MB raw -> {len(compressed) / 1e6:5.2f} MB gzip"
+    )
 
 
 def _write_json(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, separators=(",", ":")) + "\n")
     print(f"{path.name:<18} {path.stat().st_size / 1e3:6.1f} kB")
+
+
+def check(out_dir: Path, q_cap: float) -> int:
+    """
+    Verify the committed data matches a fresh build, comparing *content*.
+
+    Compressed bytes are not comparable across machines - zlib builds differ -
+    so gzipped assets are compared after decompression.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = Path(tmp)
+        build(fresh, q_cap)
+
+        stale = []
+        for built in sorted(fresh.iterdir()):
+            committed = out_dir / built.name
+            if not committed.is_file():
+                stale.append(f"{built.name}: missing from {out_dir}")
+                continue
+            if built.suffix == ".gz":
+                same = gzip.decompress(built.read_bytes()) == gzip.decompress(
+                    committed.read_bytes()
+                )
+            else:
+                same = built.read_bytes() == committed.read_bytes()
+            if not same:
+                stale.append(f"{built.name}: content differs")
+
+    print()
+    if stale:
+        print("STALE - run core/scripts/build_static_data.py and commit the result:")
+        for item in stale:
+            print(f"  {item}")
+        return 1
+    print("site/data is up to date (compared on decompressed content).")
+    return 0
 
 
 if __name__ == "__main__":
@@ -180,5 +233,13 @@ if __name__ == "__main__":
         help="output directory (default: site/data)",
     )
     parser.add_argument("--q-cap", type=float, default=EmulatorConfig().q_cap_m3s)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the committed data is current instead of writing it",
+    )
     args = parser.parse_args()
+
+    if args.check:
+        sys.exit(check(args.out, args.q_cap))
     build(args.out, args.q_cap)

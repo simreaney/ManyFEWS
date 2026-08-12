@@ -26,9 +26,7 @@ def test_timestep_other_than_a_quarter_day_is_rejected():
 
 
 def test_single_run_shapes(synthetic_weather, params):
-    result = generate_river_flows(
-        synthetic_weather, default_initial_state(100), params
-    )
+    result = generate_river_flows(synthetic_weather, default_initial_state(100), params)
     n = len(synthetic_weather)
     assert result.flow_m3s.shape == (n, 100)
     assert result.state.shape == (100, 3)
@@ -86,7 +84,9 @@ def test_large_storm_floods_and_stays_physical(synthetic_weather, params, emulat
     """
     storm = StormConfig(enabled=True, total_mm=200.0, days_ahead=2)
     state = spin_up(synthetic_weather, params)
-    forecast = inject_storm_ensemble([synthetic_weather], synthetic_weather.start, storm)
+    forecast = inject_storm_ensemble(
+        [synthetic_weather], synthetic_weather.start, storm
+    )
 
     ens = run_ensemble(forecast, state, params)
     field = emulator.field(ens.pooled(ens.peak_step()))

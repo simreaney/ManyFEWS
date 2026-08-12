@@ -22,8 +22,12 @@ def test_buckets_sum_precipitation_and_take_temperature_extremes(archive_json):
     assert len(buckets) == 8  # 48 hours / 6
     first = buckets[0]
     assert first["precipitation"] == pytest.approx(sum(hourly["precipitation"][:6]))
-    assert first["max_temperature"] == pytest.approx(max(hourly["temperature_2m"][:6]) + 273.15)
-    assert first["min_temperature"] == pytest.approx(min(hourly["temperature_2m"][:6]) + 273.15)
+    assert first["max_temperature"] == pytest.approx(
+        max(hourly["temperature_2m"][:6]) + 273.15
+    )
+    assert first["min_temperature"] == pytest.approx(
+        min(hourly["temperature_2m"][:6]) + 273.15
+    )
     assert first["relative_humidity"] == pytest.approx(
         sum(hourly["relativehumidity_2m"][:6]) / 6
     )
@@ -40,7 +44,9 @@ def test_column_order_puts_max_temperature_before_min(archive_json):
     series = buckets_to_series(bucket_to_6h(archive_json["hourly"]))
     assert WeatherSeries.TMAX == 1
     assert WeatherSeries.TMIN == 2
-    assert np.all(series.data[:, WeatherSeries.TMAX] >= series.data[:, WeatherSeries.TMIN])
+    assert np.all(
+        series.data[:, WeatherSeries.TMAX] >= series.data[:, WeatherSeries.TMIN]
+    )
 
 
 def test_member_suffixes_put_control_first(ensemble_json):

@@ -53,16 +53,11 @@ jobs:
       - name: JavaScript parity against the MATLAB reference
         run: node site/test/parity.test.mjs
 
-      - name: Rebuild the packed model data
-        run: python core/scripts/build_static_data.py
-
-      - name: Fail if the committed data is stale
-        run: |
-          if ! git diff --quiet -- site/data; then
-            echo "::error::site/data is out of date. Run core/scripts/build_static_data.py and commit the result."
-            git diff --stat -- site/data
-            exit 1
-          fi
+      # Compares decompressed content, not the committed bytes: different zlib
+      # builds emit different deflate streams for identical input, so comparing
+      # the .gz files directly fails on any machine but the one that built them.
+      - name: Check the packed model data is current
+        run: python core/scripts/build_static_data.py --check
 
       - uses: actions/upload-pages-artifact@v3
         with:

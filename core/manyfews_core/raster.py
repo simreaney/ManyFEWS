@@ -95,7 +95,9 @@ class DepthRaster:
         import io
 
         buffer = io.BytesIO()
-        Image.fromarray(self.to_rgba(vmax, gamma), mode="RGBA").save(buffer, format="PNG")
+        Image.fromarray(self.to_rgba(vmax, gamma), mode="RGBA").save(
+            buffer, format="PNG"
+        )
         return buffer.getvalue()
 
 

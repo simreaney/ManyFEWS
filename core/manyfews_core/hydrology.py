@@ -111,9 +111,7 @@ def ModelFun(
     return Q, F0
 
 
-def RoutingFun(
-    qs: np.ndarray, X: float, b: float, dt: float, q0: float
-) -> np.ndarray:
+def RoutingFun(qs: np.ndarray, X: float, b: float, dt: float, q0: float) -> np.ndarray:
     """
     Route runoff through a non-linear store, ``q = a * v**b``, after
     Mathias et al. (2016).

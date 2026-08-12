@@ -63,7 +63,9 @@ def load_channel_polygons(path: str | Path | None = None) -> list[Part]:
     else:
         raise ValueError(f"expected Polygon or MultiPolygon in {path.name}, got {kind}")
 
-    parts = [[np.asarray(ring, dtype=np.float64) for ring in part] for part in raw_parts]
+    parts = [
+        [np.asarray(ring, dtype=np.float64) for ring in part] for part in raw_parts
+    ]
     logger.info(
         "Loaded %d channel part(s), %d with holes",
         len(parts),
@@ -155,4 +157,6 @@ def cached_channel_mask(
 
     if emulator.source is None:
         return build()
-    return np.asarray(cached_array(emulator.source, "channel", build, cache)).astype(bool)
+    return np.asarray(cached_array(emulator.source, "channel", build, cache)).astype(
+        bool
+    )

@@ -68,9 +68,7 @@ def add_colorbar(m, vmax: float = 3.0) -> None:
         f"rgb({r},{g},{b}) {100 * i / (len(DEPTH_RAMP) - 1):.0f}%"
         for i, (r, g, b) in enumerate(DEPTH_RAMP)
     )
-    ticks = "".join(
-        f'<span>{v:.2g}</span>' for v in np.linspace(0, vmax, 4)
-    )
+    ticks = "".join(f"<span>{v:.2g}</span>" for v in np.linspace(0, vmax, 4))
     html = f"""
     <div style="position: fixed; bottom: 22px; left: 12px; z-index: 9999;
                 background: #fcfcfb; padding: 8px 10px; border-radius: 6px;
@@ -107,7 +105,9 @@ def flood_map(
     """
     folium = _folium()
 
-    m = folium.Map(location=list(centre), zoom_start=zoom, tiles=None, control_scale=True)
+    m = folium.Map(
+        location=list(centre), zoom_start=zoom, tiles=None, control_scale=True
+    )
     folium.TileLayer(_OSM, attr=_OSM_ATTR, name="Street map").add_to(m)
     if satellite:
         folium.TileLayer(_ESRI, attr=_ESRI_ATTR, name="Satellite").add_to(m)

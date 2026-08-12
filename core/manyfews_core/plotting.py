@@ -132,8 +132,12 @@ def flow_fan(
         for j in range(flows.shape[1]):
             ax.plot(x, flows[:, j], color=TRACE, lw=0.5, alpha=0.12, zorder=1)
 
-    ax.fill_between(x, p10, p90, color=BAND_OUTER, lw=0, zorder=2, label="10th–90th percentile")
-    ax.fill_between(x, p30, p50, color=BAND_INNER, lw=0, zorder=3, label="30th–50th percentile")
+    ax.fill_between(
+        x, p10, p90, color=BAND_OUTER, lw=0, zorder=2, label="10th–90th percentile"
+    )
+    ax.fill_between(
+        x, p30, p50, color=BAND_INNER, lw=0, zorder=3, label="30th–50th percentile"
+    )
     ax.plot(x, p50, color=LINE_MEDIAN, lw=2, zorder=4, label="Median")
 
     if threshold is not None:
@@ -199,7 +203,9 @@ def forecast_panel(ens, threshold: float | None = FLOOD_THRESHOLD_M3S, storm=Non
     ax_rain.set_title("Median forecast rainfall across ensemble members")
 
     flow_fan(ens.times, ens.flow_m3s, threshold=threshold, ax=ax_flow, title="")
-    ax_flow.set_title("River flow — 100 parameter sets × %d weather member(s)" % len(ens.members))
+    ax_flow.set_title(
+        "River flow — 100 parameter sets × %d weather member(s)" % len(ens.members)
+    )
 
     if storm is not None and getattr(storm, "enabled", False):
         fig.text(
@@ -283,7 +289,9 @@ def depth_vs_flow(emulator, n_cells: int = 200, q_max: float = 600.0, seed: int 
     fig, ax = plt.subplots(figsize=(8.5, 4.6))
 
     rng = np.random.default_rng(seed)
-    cells = rng.choice(emulator.n_cells, size=min(n_cells, emulator.n_cells), replace=False)
+    cells = rng.choice(
+        emulator.n_cells, size=min(n_cells, emulator.n_cells), replace=False
+    )
     q = np.linspace(0, q_max, 400)
 
     # Deliberately bypass the clamp so the divergence is visible.
