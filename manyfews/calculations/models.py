@@ -155,13 +155,18 @@ class TestModeSettings(models.Model):
     rather than querying the table directly.
     """
 
-    STORM_TOTAL_MM = 100.0
+    # 100mm wasn't enough to clear the flood parameters' minQ threshold for
+    # most cells with the real (non-dummy) parameter file - empirically,
+    # 250mm reliably pushes the peak flow's 90th centile past minQ for the
+    # large majority of flood-prone cells without flooding the entire
+    # catchment outright.
+    STORM_TOTAL_MM = 250.0
     STORM_DAYS_AHEAD = 2
 
     enabled = models.BooleanField(
         default=False,
         help_text=(
-            "When enabled, a 100mm storm is injected 2 days into the "
+            "When enabled, a 250mm storm is injected 2 days into the "
             "forecast before every river flow calculation. Click "
             "'Recalculate flood flows' below after changing this for it "
             "to take effect."
