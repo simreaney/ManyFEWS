@@ -156,14 +156,50 @@
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
   .leaflet-container { background: var(--plane); font: inherit; }
+
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  header .lang-switch { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; flex: none; }
+  header .lang-switch button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    padding: 6px 11px; font: inherit; font-size: 12.5px; color: var(--ink-2);
+  }
+  header .lang-switch button + button { border-left: 1px solid var(--rule); }
+  header .lang-switch button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  header .lang-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .map-tools { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; flex-wrap: wrap; }
+  .map-tools button {
+    appearance: none; border: 1px solid var(--rule); border-radius: 7px; background: var(--plane);
+    cursor: pointer; padding: 7px 12px; font: inherit; font-size: 13px; color: var(--ink);
+  }
+  .map-tools button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .map-tools button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .map-tools .locate-status { font-size: 12.5px; color: var(--ink-2); }
+
+  .legend { flex-wrap: wrap; row-gap: 8px; }
+  .legend .limit-swatch {
+    display: inline-block; width: 20px; height: 12px; border: 1.5px dashed var(--ink-2); border-radius: 2px;
+  }
+
+  .you-are-here-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--accent), 0 1px 4px rgba(0,0,0,.4);
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>ManyFEWS — Majalaya flood forecast</h1>
-  <p>Live ensemble forecast for the upper Citarum, West Java. Everything below is
-     computed in your browser: there is no server.</p>
+  <div>
+    <h1 data-i18n="title">ManyFEWS — Majalaya flood forecast</h1>
+    <p data-i18n="subtitle">Live ensemble forecast for the upper Citarum, West Java. Everything below is
+       computed in your browser: there is no server.</p>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language">
+    <button id="lang-en" type="button" aria-pressed="true">EN</button>
+    <button id="lang-id" type="button" aria-pressed="false">ID</button>
+  </div>
 </header>
 
 <main>
@@ -177,23 +213,23 @@
   <div class="panel" id="controls-panel" hidden>
     <div class="controls">
       <div class="control">
-        <label id="mode-label">View</label>
+        <label id="mode-label" data-i18n="modeLabel">View</label>
         <div class="segment" role="group" aria-labelledby="mode-label">
-          <button id="mode-forecast" aria-pressed="true">Live forecast</button>
-          <button id="mode-explore" aria-pressed="false">Explore by flow</button>
+          <button id="mode-forecast" aria-pressed="true" data-i18n="modeForecast">Live forecast</button>
+          <button id="mode-explore" aria-pressed="false" data-i18n="modeExplore">Explore by flow</button>
         </div>
       </div>
 
       <div class="control" id="pct-control">
-        <label id="pct-label">Confidence</label>
+        <label id="pct-label" data-i18n="pctLabel">Confidence</label>
         <div class="segment" role="group" aria-labelledby="pct-label">
-          <button data-pct="50" aria-pressed="false">Median</button>
-          <button data-pct="90" aria-pressed="true">90th percentile</button>
+          <button data-pct="50" aria-pressed="false" data-i18n="pctMedian">Median</button>
+          <button data-pct="90" aria-pressed="true" data-i18n="pct90">90th percentile</button>
         </div>
       </div>
 
       <div class="control" id="flow-control" hidden>
-        <label for="flow-slider">River flow</label>
+        <label for="flow-slider" data-i18n="flowLabel">River flow</label>
         <input type="range" id="flow-slider" min="40" max="300" step="5" value="160">
       </div>
       <div class="control" id="flow-readout-wrap" hidden>
@@ -202,65 +238,76 @@
       </div>
 
       <div class="control" id="storm-control">
-        <label>Scenario</label>
+        <label data-i18n="scenarioLabel">Scenario</label>
         <label class="check">
           <input type="checkbox" id="storm-toggle">
-          Add a 200 mm storm on day 2
+          <span data-i18n="stormCheck">Add a 200 mm storm on day 2</span>
         </label>
       </div>
     </div>
   </div>
 
   <div class="panel" id="chart-panel" hidden>
-    <h2>River flow forecast</h2>
-    <p class="sub">100 rainfall-runoff parameter sets × <span id="member-count">10</span>
-       weather ensemble members, at six-hourly steps.</p>
+    <h2 data-i18n="chartTitleH2">River flow forecast</h2>
+    <p class="sub" id="chart-sub">100 rainfall-runoff parameter sets × 10 weather ensemble members, at six-hourly steps.</p>
     <svg id="chart" role="img" aria-labelledby="chart-title"></svg>
-    <title id="chart-title">River flow forecast with uncertainty bands</title>
+    <title id="chart-title" data-i18n="chartTitleSvg">River flow forecast with uncertainty bands</title>
     <div id="verdict" style="margin-top:14px"></div>
   </div>
 
   <div class="panel" id="map-panel" hidden>
-    <h2>Flood depth</h2>
-    <p class="sub" id="map-sub">Cells inside the river channel are excluded — the
+    <h2 data-i18n="mapTitleH2">Flood depth</h2>
+    <p class="sub" id="map-sub" data-i18n="mapSubDefault">Cells inside the river channel are excluded — the
        emulator reports water there, but that is just the river.</p>
+    <div class="map-tools">
+      <button id="locate-btn" type="button" aria-pressed="false" data-i18n="locateButton">Show my location</button>
+      <span class="locate-status" id="locate-status" aria-live="polite"></span>
+    </div>
     <div id="map"></div>
     <div class="stats" id="stats"></div>
     <div class="legend">
-      <span>Depth</span>
+      <span data-i18n="legendDepth">Depth</span>
       <div>
         <div class="ramp"></div>
         <div class="ticks"><span>0</span><span>1</span><span>2</span><span>3 m+</span></div>
       </div>
+      <span class="limit-swatch" aria-hidden="true"></span>
+      <span data-i18n="legendLimit">Prediction area limit</span>
     </div>
   </div>
 
   <div class="panel" id="table-panel" hidden>
-    <h2>Daily summary</h2>
-    <p class="sub">Peak flow per day across all members and parameter sets.</p>
+    <h2 data-i18n="tableTitleH2">Daily summary</h2>
+    <p class="sub" data-i18n="tableSub">Peak flow per day across all members and parameter sets.</p>
     <div class="scroll"><table class="summary" id="summary"></table></div>
   </div>
 </main>
 
 <footer>
-  <h3>What this is</h3>
-  <p>A demonstration port of <a href="https://github.com/simreaney/ManyFEWS">ManyFEWS</a>,
+  <h3 data-i18n="footerWhatTitle">What this is</h3>
+  <p data-i18n-html="footerWhatBody">A demonstration port of <a href="https://github.com/simreaney/ManyFEWS">ManyFEWS</a>,
      running the full chain — Open-Meteo ensemble forecast, FAO56 evapotranspiration,
      a PDM soil store, two routing stores, and a per-cell flood-depth emulator —
      entirely client-side. Weather comes from
      <a href="https://open-meteo.com">Open-Meteo</a>; basemap from OpenStreetMap.</p>
 
-  <h3>Limitations</h3>
-  <ul>
+  <h3 data-i18n="footerLimitsTitle">Limitations</h3>
+  <ul id="footer-limits" data-i18n-list="footerLimits">
     <li>The depth model is a statistical emulator of a 2D hydraulic model, not
         hydraulics. It is valid roughly between 50 and 300 m³/s; outside that
         range the fitted cubics diverge, so the input is clamped.</li>
     <li>Depth depends on peak flow alone — no hydrograph shape, no antecedent
         floodplain wetness, no breaches or blockages.</li>
+    <li>The map only predicts depth inside the flood grid shown as a dashed box —
+        nothing is known outside it.</li>
     <li>Uncertainty shown is parametric only. It says nothing about whether the
         model structure or the underlying hydraulic model is right.</li>
     <li>Not an operational warning system. No alerts, no accounts, no oversight.</li>
   </ul>
+  <h3 data-i18n="footerDevTitle">Developers</h3>
+  <p data-i18n-html="footerDevCredit">Created by Sim Reaney. Source code available on <a href="https://github.com/simreaney/ManyFEWS">GitHub</a>.</p>
+  <p data-i18n-html="footerDevProject">This is from the <a href="https://gotw.nerc.ac.uk/list_full.asp?pcode=NE%2FS00310X%2F1&cookieConsent=A">JavaFloodOne research project</a>, co-funded by NERC in the UK and Ristekdikti in Indonesia.</p>
+  <p data-i18n="footerDevPartners">The project was in partnership with colleagues from The Bandung Institute of Technology (ITB) and UKCEH.</p>
 </footer>
 
 <script src="vendor/leaflet.js"></script>

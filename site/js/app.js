@@ -8,6 +8,7 @@
 import { FloodEmulator } from './emulator.js';
 import { generateRiverFlows } from './hydrology.js';
 import { fetchForecast, fetchHistory, injectStorm } from './weather.js';
+import { getLocale, initLocale, setLocale, t } from './i18n.js';
 
 const DEPTH_RAMP = [
   [0xcd, 0xe2, 0xfb], [0x9e, 0xc5, 0xf4], [0x55, 0x98, 0xe7],
@@ -16,6 +17,7 @@ const DEPTH_RAMP = [
 const MAX_DEPTH_M = 3.0;
 const STORM_MM = 200.0;
 const STORM_DAYS_AHEAD = 2;
+const MODEL_SIZE_MB = 3.6;
 
 const state = {
   emulator: null,
@@ -31,9 +33,56 @@ const state = {
   map: null,
   overlay: null,
   canvas: null,
+  limitBox: null,
+  userMarker: null,
+  userAccuracyCircle: null,
+  ready: false,
+  status: null,        // { key, args, kind, busy } — last status, re-translated on language switch
 };
 
 const $ = (id) => document.getElementById(id);
+
+// -------------------------------------------------------------------- i18n
+
+/** Apply the active locale to every element carrying a data-i18n(-html) tag. */
+function applyStaticTranslations() {
+  document.title = t('docTitle');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('metaDescription'));
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll('[data-i18n-list]').forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nList).map((item) => `<li>${item}</li>`).join('');
+  });
+  $('lang-en').setAttribute('aria-pressed', String(getLocale() === 'en'));
+  $('lang-id').setAttribute('aria-pressed', String(getLocale() === 'id'));
+  $('locate-btn').textContent = state.userMarker ? t('locateButtonHide') : t('locateButton');
+  $('flow-readout').textContent = `${state.flow} ${t('flowUnit')}`;
+}
+
+/** Re-run everything whose text depends on live model output, not just the DOM. */
+function applyDynamicTranslations() {
+  if (state.userMarker) state.userMarker.bindPopup(t('youAreHere'));
+  if (state.limitBox) state.limitBox.setTooltipContent(t('limitTooltip'));
+  if (state.status) setStatus(t(state.status.key, ...state.status.args), state.status.kind, state.status.busy);
+  if (!state.ready) return;
+  $('chart-sub').textContent = t('chartSub', state.ensemble.nMembers);
+  render();
+}
+
+function wireLanguageSwitch() {
+  const choose = (locale) => {
+    if (locale === getLocale()) return;
+    setLocale(locale);
+    applyStaticTranslations();
+    applyDynamicTranslations();
+  };
+  $('lang-en').addEventListener('click', () => choose('en'));
+  $('lang-id').addEventListener('click', () => choose('id'));
+}
 
 function setStatus(text, kind = 'info', busy = true) {
   const panel = $('status-panel');
@@ -44,6 +93,12 @@ function setStatus(text, kind = 'info', busy = true) {
     ? '<span class="spinner"></span>'
     : (kind === 'error' ? '!' : 'i');
   $('status-text').textContent = text;
+}
+
+/** Like setStatus, but remembers the translation key so a language switch can redraw it. */
+function setStatusKey(key, args = [], kind = 'info', busy = true) {
+  state.status = { key, args, kind, busy };
+  setStatus(t(key, ...args), kind, busy);
 }
 
 // ---------------------------------------------------------------- model run
@@ -104,7 +159,7 @@ function peakStep(ensemble, pct = 90) {
 }
 
 async function recomputeForecast() {
-  setStatus('Running the catchment model…');
+  setStatusKey('statusRunning');
   await nextFrame();
 
   let members = state.forecast;
@@ -112,7 +167,7 @@ async function recomputeForecast() {
     members = members.map((m) => injectStorm(m, STORM_MM, STORM_DAYS_AHEAD));
   }
   state.ensemble = runEnsemble(members, state.spunUpState);
-  $('member-count').textContent = state.ensemble.nMembers;
+  $('chart-sub').textContent = t('chartSub', state.ensemble.nMembers);
 }
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
@@ -147,9 +202,9 @@ function drawChart() {
 
   // Day ticks.
   const ticks = [];
-  times.forEach((t, i) => {
-    if (t.getUTCHours() === 0 && i % 8 === 0) {
-      ticks.push({ i, label: `${t.getUTCDate()}/${t.getUTCMonth() + 1}` });
+  times.forEach((time, i) => {
+    if (time.getUTCHours() === 0 && i % 8 === 0) {
+      ticks.push({ i, label: `${time.getUTCDate()}/${time.getUTCMonth() + 1}` });
     }
   });
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => yMax * f);
@@ -162,11 +217,11 @@ function drawChart() {
               stroke="var(--grid)" stroke-width="1"/>
         <text x="${pad.left - 8}" y="${y(v) + 4}" text-anchor="end"
               font-size="11" fill="var(--ink-muted)">${v % 1 ? v.toFixed(1) : v}</text>`).join('')}
-      ${ticks.map((t) => `
-        <text x="${x(t.i)}" y="${h - 10}" text-anchor="middle"
-              font-size="11" fill="var(--ink-muted)">${t.label}</text>`).join('')}
+      ${ticks.map((tk) => `
+        <text x="${x(tk.i)}" y="${h - 10}" text-anchor="middle"
+              font-size="11" fill="var(--ink-muted)">${tk.label}</text>`).join('')}
       <text x="12" y="${pad.top + ih / 2}" transform="rotate(-90 12 ${pad.top + ih / 2})"
-            text-anchor="middle" font-size="11.5" fill="var(--ink-2)">River flow (m³/s)</text>
+            text-anchor="middle" font-size="11.5" fill="var(--ink-2)">${t('chartAxisLabel')}</text>
 
       <path d="${area('p10', 'p90')}" fill="var(--band-outer)"/>
       <path d="${area('p30', 'p50')}" fill="var(--band-inner)"/>
@@ -176,22 +231,24 @@ function drawChart() {
             stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 3"/>
       <text x="${w - pad.right}" y="${y(threshold) - 6}" text-anchor="end"
             font-size="11.5" font-weight="600" fill="var(--critical)">
-        flooding starts — ${threshold} m³/s
+        ${t('chartFloodStart', threshold)}
       </text>
 
       <g font-size="11.5" fill="var(--ink-2)">
         <rect x="${pad.left + 8}" y="${pad.top + 6}" width="11" height="11" rx="2" fill="var(--band-outer)"/>
-        <text x="${pad.left + 25}" y="${pad.top + 15}">10th–90th percentile</text>
+        <text x="${pad.left + 25}" y="${pad.top + 15}">${t('chartLegendP10P90')}</text>
         <rect x="${pad.left + 8}" y="${pad.top + 23}" width="11" height="11" rx="2" fill="var(--band-inner)"/>
-        <text x="${pad.left + 25}" y="${pad.top + 32}">30th–50th percentile</text>
+        <text x="${pad.left + 25}" y="${pad.top + 32}">${t('chartLegendP30P50')}</text>
         <line x1="${pad.left + 8}" x2="${pad.left + 19}" y1="${pad.top + 45}" y2="${pad.top + 45}"
               stroke="var(--line)" stroke-width="2"/>
-        <text x="${pad.left + 25}" y="${pad.top + 49}">Median</text>
+        <text x="${pad.left + 25}" y="${pad.top + 49}">${t('chartLegendMedian')}</text>
       </g>
     </g>`;
 }
 
 // --------------------------------------------------------------------- map
+
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 /**
  * Build the map. The container must already be visible: Leaflet reads its size
@@ -212,6 +269,16 @@ function initMap() {
   state.canvas.height = g.n_row;
   state.overlay = L.imageOverlay('', bounds, { opacity: 0.78, interactive: false }).addTo(state.map);
 
+  // Outline the extent the emulator actually has predictions for — the
+  // basemap keeps panning past it, but depth is only ever computed inside.
+  state.limitBox = L.rectangle(bounds, {
+    color: cssVar('--ink-2') || '#52514e',
+    weight: 1.5,
+    dashArray: '6 4',
+    fill: false,
+    interactive: true,
+  }).addTo(state.map).bindTooltip(t('limitTooltip'));
+
   state.map.invalidateSize();
   state.map.fitBounds(bounds);
 }
@@ -231,10 +298,10 @@ function drawDepth(depth) {
     if (!(d > 0.01)) continue;
 
     // Gamma below 1 lifts shallow water, which is where the detail is.
-    const t = Math.pow(Math.min(d / MAX_DEPTH_M, 1), 0.7) * last;
-    const lo = Math.min(Math.floor(t), last);
+    const ramp = Math.pow(Math.min(d / MAX_DEPTH_M, 1), 0.7) * last;
+    const lo = Math.min(Math.floor(ramp), last);
     const hi = Math.min(lo + 1, last);
-    const f = t - lo;
+    const f = ramp - lo;
 
     const o = position[i] * 4;
     px[o] = DEPTH_RAMP[lo][0] + f * (DEPTH_RAMP[hi][0] - DEPTH_RAMP[lo][0]);
@@ -247,16 +314,77 @@ function drawDepth(depth) {
   state.overlay.setUrl(state.canvas.toDataURL('image/png'));
 }
 
+// ---------------------------------------------------------- geolocation
+
+function geoErrorMessage(error) {
+  switch (error.code) {
+    case error.PERMISSION_DENIED: return t('locateDenied');
+    case error.POSITION_UNAVAILABLE: return t('locateUnavailable');
+    case error.TIMEOUT: return t('locateTimeout');
+    default: return t('locateUnavailable');
+  }
+}
+
+function removeUserMarker() {
+  if (state.userMarker) { state.map.removeLayer(state.userMarker); state.userMarker = null; }
+  if (state.userAccuracyCircle) { state.map.removeLayer(state.userAccuracyCircle); state.userAccuracyCircle = null; }
+  $('locate-btn').setAttribute('aria-pressed', 'false');
+  $('locate-btn').textContent = t('locateButton');
+}
+
+function placeUserMarker(lat, lng, accuracy) {
+  removeUserMarker();
+  state.userMarker = L.marker([lat, lng], {
+    icon: L.divIcon({
+      className: 'you-are-here-icon',
+      html: '<span class="you-are-here-dot"></span>',
+      iconSize: [14, 14],
+    }),
+  }).addTo(state.map).bindPopup(t('youAreHere'));
+  if (accuracy) {
+    state.userAccuracyCircle = L.circle([lat, lng], {
+      radius: accuracy, color: cssVar('--accent') || '#2a78d6', weight: 1, fillOpacity: 0.08,
+    }).addTo(state.map);
+  }
+  state.userMarker.openPopup();
+  state.map.panTo([lat, lng]);
+  $('locate-btn').setAttribute('aria-pressed', 'true');
+  $('locate-btn').textContent = t('locateButtonHide');
+}
+
+function wireLocate() {
+  $('locate-btn').addEventListener('click', () => {
+    if (state.userMarker) {
+      removeUserMarker();
+      $('locate-status').textContent = '';
+      return;
+    }
+    if (!navigator.geolocation) {
+      $('locate-status').textContent = t('locateUnsupported');
+      return;
+    }
+    $('locate-status').textContent = t('locateLocating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        $('locate-status').textContent = '';
+        placeUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+      },
+      (error) => { $('locate-status').textContent = geoErrorMessage(error); },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  });
+}
+
 // ------------------------------------------------------------------ render
 
 function renderStats(depth, headline) {
   const em = state.emulator;
   const wet = em.wetCells(depth);
   const cells = [
-    ['Situation', headline],
-    ['Flooded cells', wet.toLocaleString()],
-    ['Deepest', `${em.maxDepth(depth).toFixed(2)} m`],
-    ['Mean where wet', `${em.meanWetDepth(depth).toFixed(2)} m`],
+    [t('statSituation'), headline],
+    [t('statFlooded'), wet.toLocaleString()],
+    [t('statDeepest'), `${em.maxDepth(depth).toFixed(2)} m`],
+    [t('statMeanWet'), `${em.meanWetDepth(depth).toFixed(2)} m`],
   ];
   $('stats').innerHTML = cells
     .map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`)
@@ -268,15 +396,12 @@ function renderVerdict(wet, peakFlow) {
   const threshold = state.meta.flood_threshold_m3s;
   $('verdict').innerHTML = wet === 0
     ? `<div class="notice info"><span class="icon">i</span><span>
-         <strong>No flooding forecast.</strong> Peak flow reaches
-         ${peakFlow.toFixed(1)} m³/s at the ${state.percentile}th percentile, below the
-         ${threshold} m³/s at which any cell begins to flood. The map will be empty —
-         this is the normal result for this catchment. Try the storm scenario, or
-         switch to <em>Explore by flow</em>.</span></div>`
+         <strong>${t('noFloodTitle')}</strong>
+         ${t('noFloodBody', peakFlow.toFixed(1), state.percentile, threshold)}</span></div>`
     : `<div class="notice"><span class="icon">!</span><span>
-         <strong>Flooding forecast.</strong> ${wet.toLocaleString()} cells inundated at
-         the ${state.percentile}th percentile, peak flow ${peakFlow.toFixed(1)} m³/s.
-         ${state.storm ? 'Driven by a synthetic storm — this is not a real forecast.' : ''}
+         <strong>${t('floodTitle')}</strong>
+         ${t('floodBody', wet.toLocaleString(), state.percentile, peakFlow.toFixed(1))}
+         ${state.storm ? t('floodStormNote') : ''}
        </span></div>`;
 }
 
@@ -292,19 +417,19 @@ function renderSummaryTable() {
       p50 = Math.max(p50, percentileOf(pooled, 50));
       p90 = Math.max(p90, percentileOf(pooled, 90));
     }
-    const t = times[day * 4];
+    const dayStart = times[day * 4];
     rows.push({
-      date: t.toISOString().slice(0, 10),
+      date: dayStart.toISOString().slice(0, 10),
       p50, p90, flooding: p90 >= threshold,
     });
   }
 
   $('summary').innerHTML = `
-    <thead><tr><th>Date</th><th>Peak flow p50</th><th>Peak flow p90</th><th>Status</th></tr></thead>
+    <thead><tr><th>${t('thDate')}</th><th>${t('thP50')}</th><th>${t('thP90')}</th><th>${t('thStatus')}</th></tr></thead>
     <tbody>${rows.map((r) => `
       <tr class="${r.flooding ? 'flooding' : ''}">
         <td>${r.date}</td><td>${r.p50.toFixed(1)}</td><td>${r.p90.toFixed(1)}</td>
-        <td>${r.flooding ? 'Flooding possible' : 'No flooding'}</td>
+        <td>${r.flooding ? t('rowFlooding') : t('rowNoFlood')}</td>
       </tr>`).join('')}</tbody>`;
 }
 
@@ -314,11 +439,9 @@ function render() {
   if (state.mode === 'explore') {
     const depth = em.depthAt(state.flow);
     drawDepth(depth);
-    renderStats(depth, `${state.flow} m³/s`);
+    renderStats(depth, `${state.flow} ${t('flowUnit')}`);
     $('verdict').innerHTML = '';
-    $('map-sub').textContent =
-      `Inundation at a chosen river flow of ${state.flow} m³/s, independent of any forecast. ` +
-      'Channel cells are excluded.';
+    $('map-sub').textContent = t('mapSubExplore', state.flow);
     return;
   }
 
@@ -333,13 +456,12 @@ function render() {
   renderSummaryTable();
   drawChart();
 
-  $('map-sub').textContent =
-    `Peak of the forecast, ${state.ensemble.times[step].toISOString().slice(0, 16).replace('T', ' ')} UTC, ` +
-    `at the ${state.percentile}th percentile. Channel cells are excluded.`;
+  const dateStr = state.ensemble.times[step].toISOString().slice(0, 16).replace('T', ' ');
+  $('map-sub').textContent = t('mapSubForecast', dateStr, state.percentile);
 }
 
 const wetCount = (em, depth) => em.wetCells(depth);
-const wetHeadline = (wet) => (wet === 0 ? 'No flooding' : 'Flooding');
+const wetHeadline = (wet) => (wet === 0 ? t('headlineNoFlooding') : t('headlineFlooding'));
 
 // ------------------------------------------------------------------- setup
 
@@ -375,7 +497,7 @@ function wireControls() {
   const slider = $('flow-slider');
   slider.addEventListener('input', () => {
     state.flow = Number(slider.value);
-    $('flow-readout').textContent = `${state.flow} m³/s`;
+    $('flow-readout').textContent = `${state.flow} ${t('flowUnit')}`;
     render();
   });
 
@@ -383,9 +505,8 @@ function wireControls() {
     state.storm = event.target.checked;
     await recomputeForecast();
     render();
-    setStatus(state.storm
-      ? `Synthetic ${STORM_MM} mm storm applied on day ${STORM_DAYS_AHEAD}.`
-      : 'Live forecast.', 'info', false);
+    setStatusKey(state.storm ? 'stormOn' : 'stormOff',
+      state.storm ? [STORM_MM, STORM_DAYS_AHEAD] : [], 'info', false);
   });
 
   let resizeTimer;
@@ -396,24 +517,28 @@ function wireControls() {
 }
 
 async function main() {
+  initLocale();
+  applyStaticTranslations();
+  wireLanguageSwitch();
+
   try {
     const t0 = performance.now();
 
-    setStatus('Loading the flood model (3.6 MB)…');
+    setStatusKey('statusLoadingModelSized', [MODEL_SIZE_MB]);
     state.emulator = await FloodEmulator.load('data');
     state.meta = state.emulator.meta;
     state.params = await (await fetch('data/params.json')).json();
 
-    setStatus('Fetching observed weather for the spin-up…');
+    setStatusKey('statusFetchingHistory');
     state.history = await fetchHistory(state.meta.catchment);
 
-    setStatus('Spinning up the catchment model…');
+    setStatusKey('statusSpinningUp');
     const seed = state.params.sets.map(() => [...state.params.initial_state]);
     state.spunUpState = generateRiverFlows(
       state.history, state.params.sets, seed, state.meta.catchment
     ).state;
 
-    setStatus('Fetching the ensemble forecast…');
+    setStatusKey('statusFetchingForecast');
     state.forecast = await fetchForecast(state.meta.catchment);
 
     await recomputeForecast();
@@ -428,17 +553,17 @@ async function main() {
 
     initMap();
     wireControls();
+    wireLocate();
     render();
+    state.ready = true;
 
     const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-    setStatus(
-      `Ready in ${elapsed}s — ${state.emulator.n.toLocaleString()} flood cells, ` +
-      `${state.ensemble.nMembers} weather members × ${state.params.sets.length} parameter sets.`,
-      'info', false
-    );
+    setStatusKey('statusReady', [
+      elapsed, state.emulator.n.toLocaleString(), state.ensemble.nMembers, state.params.sets.length,
+    ], 'info', false);
   } catch (error) {
     console.error(error);
-    setStatus(`Could not load: ${error.message}`, 'error', false);
+    setStatusKey('statusError', [error.message], 'error', false);
   }
 }
 
