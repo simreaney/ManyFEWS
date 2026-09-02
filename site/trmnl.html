@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=800, initial-scale=1">
+<title>Flood Risk Forecast</title>
+<meta name="description" content="5-day flood risk forecast for Majalaya, sized for a TRMNL e-ink display. Runs entirely in the browser.">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 800px;
+    height: 480px;
+    background: #ffffff;
+    color: #000000;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  .page {
+    width: 800px;
+    height: 480px;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+  }
+  .title {
+    font-size: 30px;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 4px 0;
+  }
+  .subtitle {
+    font-size: 16px;
+    text-align: center;
+    color: #444444;
+    margin: 0 0 16px 0;
+  }
+  .chart {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-evenly;
+    border-bottom: 3px solid #000000;
+  }
+  .bar-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 130px;
+    height: 100%;
+  }
+  .bar-value {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .bar {
+    width: 90px;
+    background: #000000;
+  }
+  .bar-label {
+    margin-top: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1 class="title">Flood Risk – Next 5 Days</h1>
+    <p class="subtitle" id="subtitle">Loading forecast…</p>
+    <div class="chart" id="chart"></div>
+  </div>
+  <script type="module" src="js/trmnl.js"></script>
+</body>
+</html>
