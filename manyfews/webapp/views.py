@@ -96,6 +96,45 @@ def index(request):
     return HttpResponse(template.render({"daily_risks": daily_risks}, request))
 
 
+def _max_daily_risks(num_days):
+    """
+    Return `num_days` dicts of {day_number, date, max_risk, max_percentage_risk}
+    starting today, where max_risk is the maximum PercentageFloodRisk.risk
+    across that day's four 6-hourly readings (0/6/12/18h), defaulting to 0
+    when a reading is missing.
+    """
+    today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    results = []
+    for i in range(num_days):
+        day = today + timedelta(days=i)
+        risks = []
+        for j in range(4):
+            percentage_flood_risk = PercentageFloodRisk.objects.filter(
+                date=day + timedelta(hours=j * 6)
+            ).first()
+            risks.append(percentage_flood_risk.risk if percentage_flood_risk else 0)
+        max_risk = max(risks)
+        results.append(
+            {
+                "day_number": i,
+                "date": day,
+                "max_risk": max_risk,
+                "max_percentage_risk": round(max_risk * 100),
+            }
+        )
+    return results
+
+
+def trmnl_display(request):
+    template = loader.get_template("webapp/trmnl_display.html")
+    return HttpResponse(
+        template.render(
+            {"daily_risks": _max_daily_risks(5), "generated_at": timezone.now()},
+            request,
+        )
+    )
+
+
 def depth_predictions(request, day, hour, bounding_box):
     # Get the depth predictions for this bounding box and day days ahead
     today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
