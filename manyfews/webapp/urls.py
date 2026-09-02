@@ -12,6 +12,7 @@ urlpatterns = [
         name="depths",
     ),
     path("river-flows", views.river_flows, name="river_flows"),
+    path("trmnl/", views.trmnl_display, name="trmnl_display"),
     path("alerts/verify", views.verify_alert, name="verify"),
     path(
         "alerts/resend-verification/<int:id>", views.resend_verification, name="verify"

@@ -6,6 +6,7 @@ from django.contrib.gis.geos import Polygon
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core import mail
 from django.test import TestCase, LiveServerTestCase
+from django.urls import reverse
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -48,6 +49,13 @@ class TwilioAlertsTests(TestCase):
         # Any other non-"approved" status should also not verify.
         verification_checks.create.return_value.status = "canceled"
         assert twilio_alerts.check_verification_code("+441234567890", "123456") is False
+
+
+class TrmnlDisplayTests(TestCase):
+    def test_trmnl_display_returns_5_day_bars(self):
+        response = self.client.get(reverse("trmnl_display"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode().count("bar-column"), 5)
 
 
 class ConverterTestCase(TestCase):

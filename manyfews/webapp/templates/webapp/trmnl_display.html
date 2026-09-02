@@ -1,0 +1,85 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=800, initial-scale=1">
+    <title>{% trans "Flood Risk Forecast" %}</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 800px;
+            height: 480px;
+            background: #ffffff;
+            color: #000000;
+            font-family: "Helvetica Neue", Arial, sans-serif;
+        }
+        .page {
+            width: 800px;
+            height: 480px;
+            padding: 24px 32px;
+            display: flex;
+            flex-direction: column;
+        }
+        .title {
+            font-size: 30px;
+            font-weight: 700;
+            text-align: center;
+            margin: 0 0 4px 0;
+        }
+        .subtitle {
+            font-size: 16px;
+            text-align: center;
+            color: #444444;
+            margin: 0 0 16px 0;
+        }
+        .chart {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-evenly;
+            border-bottom: 3px solid #000000;
+        }
+        .bar-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            width: 130px;
+            height: 100%;
+        }
+        .bar-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .bar {
+            width: 90px;
+            background: #000000;
+        }
+        .bar-label {
+            margin-top: 10px;
+            font-size: 22px;
+            font-weight: 600;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1 class="title">{% trans "Flood Risk – Next 5 Days" %}</h1>
+        <p class="subtitle">{% trans "Updated" %} {{ generated_at|date:"D j M, H:i" }}</p>
+        <div class="chart">
+            {% for d in daily_risks %}
+                <div class="bar-column">
+                    <div class="bar-value">{{ d.max_percentage_risk }}%</div>
+                    <div class="bar" style="height: {{ d.max_percentage_risk }}%;"></div>
+                    <div class="bar-label">{{ d.date|date:"D" }}<br>{{ d.date|date:"j M" }}</div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
